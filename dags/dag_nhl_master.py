@@ -1,16 +1,8 @@
+import os
+
 from airflow.decorators import dag
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from pendulum import datetime
-import os
-
-from cosmos import (
-    DbtTaskGroup,
-    ProjectConfig,
-    ProfileConfig,
-    ExecutionConfig,
-    RenderConfig,
-)
-from cosmos.profiles import PostgresUserPasswordProfileMapping
 
 # -----------------------------
 # DEFAULT ARGS
@@ -22,18 +14,51 @@ default_args = {
     "retries": 2,
 }
 
+
+def build_dbt_group(
+    *,
+    group_id,
+    select,
+    install_deps,
+    project_config,
+    profile_config,
+    execution_config,
+):
+    from cosmos import DbtTaskGroup, LoadMode, RenderConfig
+
+    return DbtTaskGroup(
+        group_id=group_id,
+        project_config=project_config,
+        profile_config=profile_config,
+        execution_config=execution_config,
+        render_config=RenderConfig(
+            select=select, dbt_deps=install_deps, load_method=LoadMode.DBT_LS
+        ),
+        operator_args={
+            "install_deps": install_deps,
+            "full_refresh": False,
+        },
+    )
+
+
 # -----------------------------
 # DAG MASTER
 # -----------------------------
 @dag(
     dag_id="nhl_master_pipeline",
     description="Pipeline master NHL: ingestão -> dbt -> ingestões complementares -> dbt",
-    schedule="00 05 * * *",
+    schedule="00 08 * * *",
     catchup=False,
     default_args=default_args,
     tags=["nhl", "master", "orchestration"],
 )
 def nhl_master_pipeline():
+    from cosmos import (
+        ExecutionConfig,
+        ProfileConfig,
+        ProjectConfig,
+    )
+    from cosmos.profiles import PostgresUserPasswordProfileMapping
 
     # -----------------------------
     # DBT CONFIG (COMPARTILHADA)
@@ -43,14 +68,12 @@ def nhl_master_pipeline():
         target_name="dev",
         profile_mapping=PostgresUserPasswordProfileMapping(
             conn_id="postgres_dw",
-            profile_args={
-                "schema": "staging"
-            },
+            profile_args={"schema": "staging"},
         ),
     )
-        
+
     execution_config = ExecutionConfig(
-        dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt",
+        dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt"
     )
 
     project_config = ProjectConfig(
@@ -70,20 +93,14 @@ def nhl_master_pipeline():
     # -----------------------------
     # 2️⃣ DBT RUN – APÓS CORE
     # -----------------------------
-    dbt_run_after_summary = DbtTaskGroup(
+    dbt_run_views = build_dbt_group(
         group_id="dbt_run_after_games_summary",
+        select=["tag:nhl"],
+        install_deps=True,
         project_config=project_config,
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(
-            select=["tag:nhl", "tag:staging", "tag:game_id"],
-        ),
-        operator_args={
-            "install_deps": True,
-            "full_refresh": False,
-        },
     )
-
     # -----------------------------
     # 3️⃣ INGESTÕES COMPLEMENTARES
     # -----------------------------
@@ -132,42 +149,29 @@ def nhl_master_pipeline():
     # -----------------------------
     # 4️⃣ DBT RUN FINAL
     # -----------------------------
-    dbt_run_final = DbtTaskGroup(
+    dbt_run_final = build_dbt_group(
         group_id="dbt_run_final",
+        select=["tag:nhl"],
+        install_deps=True,
         project_config=project_config,
         profile_config=profile_config,
         execution_config=execution_config,
-        render_config=RenderConfig(
-            select=["tag:nhl"],
-            exclude=["tag:game_id"],
-        ),
-        operator_args={
-            "install_deps": False,
-            "full_refresh": False,
-        },
     )
 
     # -----------------------------
     # FLUXO
     # -----------------------------
-    trigger_games_summary >> dbt_run_after_summary
-
-    dbt_run_after_summary >> [
-        trigger_games_summary_details,
-        trigger_games_details,
-        trigger_games_play_by_play,
-        trigger_game_log,
-        trigger_club_stats,
-    ]
-
-    [
-        trigger_games_summary_details,
-        trigger_games_details,
-        trigger_games_play_by_play,
-        trigger_game_log,
-        trigger_club_stats,
-        trigger_players
-    ] >> dbt_run_final
+    (
+        trigger_games_summary
+        >> dbt_run_views
+        >> trigger_games_summary_details
+        >> trigger_games_details
+        >> trigger_games_play_by_play
+        >> trigger_club_stats
+        >> trigger_game_log
+        >> trigger_players
+        >> dbt_run_final
+    )
 
 
 # -----------------------------

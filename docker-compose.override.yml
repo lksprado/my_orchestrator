@@ -4,6 +4,7 @@ services:
     user: root
     environment:
       PYTHONPATH: /usr/local/airflow
+      AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT: "120"
     volumes:
       - ./dbt/demodadosdw/:/usr/local/airflow/dbt/demodadosdw
       - ./dbt/the_dw/:/usr/local/airflow/dbt/the_dw
@@ -13,6 +14,7 @@ services:
     user: root
     environment:
       PYTHONPATH: /usr/local/airflow
+      AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT: "120"
     volumes:
       - ./dbt/demodadosdw/:/usr/local/airflow/dbt/demodadosdw
       - ./dbt/the_dw/:/usr/local/airflow/dbt/the_dw
