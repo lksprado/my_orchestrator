@@ -17,3 +17,6 @@
 [submodule "include/nhl_extraction"]
 	path = include/nhl_extraction
 	url = git@github.com-pessoal:lksprado/nhl-extraction.git
+[submodule "include/vide"]
+	path = include/vide
+	url = https://github.com/lksprado/webscraping-bookstore.git
