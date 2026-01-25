@@ -1,5 +1,3 @@
-import os
-
 from airflow.decorators import dag
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from pendulum import datetime
@@ -15,32 +13,6 @@ default_args = {
 }
 
 
-def build_dbt_group(
-    *,
-    group_id,
-    select,
-    install_deps,
-    project_config,
-    profile_config,
-    execution_config,
-):
-    from cosmos import DbtTaskGroup, LoadMode, RenderConfig
-
-    return DbtTaskGroup(
-        group_id=group_id,
-        project_config=project_config,
-        profile_config=profile_config,
-        execution_config=execution_config,
-        render_config=RenderConfig(
-            select=select, dbt_deps=install_deps, load_method=LoadMode.DBT_LS
-        ),
-        operator_args={
-            "install_deps": install_deps,
-            "full_refresh": False,
-        },
-    )
-
-
 # -----------------------------
 # DAG MASTER
 # -----------------------------
@@ -50,36 +22,11 @@ def build_dbt_group(
     schedule="00 08 * * *",
     catchup=False,
     default_args=default_args,
-    tags=["nhl", "master", "orchestration"],
+    tags=["nhl"],
+    max_active_tasks=2,
+    max_active_runs=1,
 )
 def nhl_master_pipeline():
-    from cosmos import (
-        ExecutionConfig,
-        ProfileConfig,
-        ProjectConfig,
-    )
-    from cosmos.profiles import PostgresUserPasswordProfileMapping
-
-    # -----------------------------
-    # DBT CONFIG (COMPARTILHADA)
-    # -----------------------------
-    profile_config = ProfileConfig(
-        profile_name="my_datawarehouse",
-        target_name="dev",
-        profile_mapping=PostgresUserPasswordProfileMapping(
-            conn_id="postgres_dw",
-            profile_args={"schema": "staging"},
-        ),
-    )
-
-    execution_config = ExecutionConfig(
-        dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt"
-    )
-
-    project_config = ProjectConfig(
-        dbt_project_path="/usr/local/airflow/dbt/my_datawarehouse",
-    )
-
     # -----------------------------
     # 1️⃣ INGESTÃO CORE
     # -----------------------------
@@ -93,20 +40,19 @@ def nhl_master_pipeline():
     # -----------------------------
     # 2️⃣ DBT RUN – APÓS CORE
     # -----------------------------
-    dbt_run_views = build_dbt_group(
-        group_id="dbt_run_after_games_summary",
-        select=["tag:nhl"],
-        install_deps=True,
-        project_config=project_config,
-        profile_config=profile_config,
-        execution_config=execution_config,
+    trigger_dbt_pre = TriggerDagRunOperator(
+        task_id="trigger_dbt_pre",
+        trigger_dag_id="dag_dbt_nhl",
+        wait_for_completion=True,
+        reset_dag_run=True,
     )
+
     # -----------------------------
     # 3️⃣ INGESTÕES COMPLEMENTARES
     # -----------------------------
     trigger_games_summary_details = TriggerDagRunOperator(
         task_id="trigger_games_summary_details",
-        trigger_dag_id="nhl_games_summary_details",
+        trigger_dag_id="nhl_games_summary",
         wait_for_completion=True,
         reset_dag_run=True,
     )
@@ -149,13 +95,11 @@ def nhl_master_pipeline():
     # -----------------------------
     # 4️⃣ DBT RUN FINAL
     # -----------------------------
-    dbt_run_final = build_dbt_group(
-        group_id="dbt_run_final",
-        select=["tag:nhl"],
-        install_deps=True,
-        project_config=project_config,
-        profile_config=profile_config,
-        execution_config=execution_config,
+    trigger_dbt_pos = TriggerDagRunOperator(
+        task_id="trigger_dbt_pos",
+        trigger_dag_id="dag_dbt_nhl",
+        wait_for_completion=True,
+        reset_dag_run=True,
     )
 
     # -----------------------------
@@ -163,14 +107,14 @@ def nhl_master_pipeline():
     # -----------------------------
     (
         trigger_games_summary
-        >> dbt_run_views
+        >> trigger_dbt_pre
         >> trigger_games_summary_details
         >> trigger_games_details
         >> trigger_games_play_by_play
         >> trigger_club_stats
         >> trigger_game_log
         >> trigger_players
-        >> dbt_run_final
+        >> trigger_dbt_pos
     )
 
 

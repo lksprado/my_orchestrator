@@ -1,6 +1,7 @@
-from cosmos import DbtDag, ProjectConfig, ProfileConfig, ExecutionConfig
-from cosmos.profiles import PostgresUserPasswordProfileMapping
 import os
+
+from cosmos import DbtDag, ExecutionConfig, ProfileConfig, ProjectConfig
+from cosmos.profiles import PostgresUserPasswordProfileMapping
 
 profile_config = ProfileConfig(
     profile_name="demodados",
@@ -17,7 +18,7 @@ profile_config = ProfileConfig(
 
 my_cosmos_dag = DbtDag(
     project_config=ProjectConfig(
-        dbt_project_path="/usr/local/airflow/dbt/demodadosdw", ### caminho dentro da maquina docker
+        dbt_project_path="/usr/local/airflow/dbt/demodadosdw",  ### caminho dentro da maquina docker
         project_name="demodadosdw",
     ),
     profile_config=profile_config,
@@ -28,9 +29,10 @@ my_cosmos_dag = DbtDag(
         "install_deps": True,
         "target": profile_config.target_name,
     },
-    schedule="@weekly",
+    # schedule="@weekly",
     # start_date=datetime(2025, 10, 25, 21, 5),
     catchup=False,
-    dag_id=f"dag_demodados_dbt",
+    dag_id="dag_dbt_demodados",
     default_args={"retries": 2},
+    tags=["demodados"],
 )

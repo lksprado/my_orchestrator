@@ -7,7 +7,7 @@ services:
       AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT: "120"
     volumes:
       - ./dbt/demodadosdw/:/usr/local/airflow/dbt/demodadosdw
-      - ./dbt/the_dw/:/usr/local/airflow/dbt/the_dw
+      - ./dbt/my_datawarehouse:/usr/local/airflow/dbt/my_datawarehouse
       - /media/lucas/Files/2.Projetos/0.mylake:/usr/local/airflow/mylake
 
   dag-processor:
@@ -17,5 +17,5 @@ services:
       AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT: "120"
     volumes:
       - ./dbt/demodadosdw/:/usr/local/airflow/dbt/demodadosdw
-      - ./dbt/the_dw/:/usr/local/airflow/dbt/the_dw
+      - ./dbt/my_datawarehouse:/usr/local/airflow/dbt/my_datawarehouse
       - /media/lucas/Files/2.Projetos/0.mylake:/usr/local/airflow/mylake

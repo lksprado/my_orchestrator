@@ -23,10 +23,11 @@ default_args = {
 )
 def vide_pages_etl():
     raw_folder = "/usr/local/airflow/mylake/raw/vide/paginas"
+    config_file = "/usr/local/airflow/include/vide/src/config.yml"
 
     @task
     def make_request():
-        return extract_link_content(output_dir=raw_folder)
+        return extract_link_content(output_dir=raw_folder, config_file=config_file)
 
     @task
     def load_raw():
