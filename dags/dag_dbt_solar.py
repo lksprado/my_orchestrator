@@ -20,7 +20,7 @@ my_cosmos_dag = DbtDag(
     profile_config=profile_config_dev,
     render_config=RenderConfig(
         load_method=LoadMode.DBT_LS,
-        selector="energi",
+        selector="energia",
         dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt",
         dbt_deps=True,
     ),

@@ -20,3 +20,6 @@
 [submodule "include/vide"]
 	path = include/vide
 	url = https://github.com/lksprado/webscraping-bookstore.git
+[submodule "include/inflation"]
+	path = include/inflation
+	url = https://github.com/lksprado/webscraping-inflation.git
