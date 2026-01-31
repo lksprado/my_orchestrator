@@ -42,6 +42,7 @@ def send_single_batch_df_to_db(
     file_extension: Literal["json", "csv"],
     schema: str,
     table_name: str,
+    separator: str = ";",
     how="replace",
 ):
     """Envia um Dataframe Pandas para camada raw interpretando como texto.
@@ -67,7 +68,7 @@ def send_single_batch_df_to_db(
             continue
 
         if file_extension == "csv":
-            df = pd.read_csv(file, encoding="utf-8")
+            df = pd.read_csv(file, sep=separator, encoding="utf-8")
 
         elif file_extension == "json":
             df = pd.read_json(file, encoding="utf-8")
