@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from airflow.decorators import dag, task
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from pendulum import datetime
 
 # -----------------------------
@@ -51,6 +52,13 @@ def inflation_etl():
             how="replace",
         )
 
+    trigger_dbt = TriggerDagRunOperator(
+        task_id="trigger_dbt",
+        trigger_dag_id="dag_dbt_inflation",
+        wait_for_completion=True,
+        reset_dag_run=True,
+    )
+
     # -----------------------------
     # FLUXO
     # -----------------------------
@@ -58,7 +66,7 @@ def inflation_etl():
     extraction_task = extraction()
     loading_task = loading()
 
-    extraction_task >> loading_task
+    extraction_task >> loading_task >> trigger_dbt
 
 
 # Instancia a DAG

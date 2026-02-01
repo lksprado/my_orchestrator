@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime
 import os
+from datetime import datetime
 
 import pandas as pd
 from airflow.decorators import dag, task
@@ -41,7 +41,7 @@ def extract_pipeline():
         filepath = os.path.join(GOLD_DIR, filename)
 
         # 3. Salva CSV
-        df.to_csv(filepath, sep=';', index=False)
+        df.to_csv(filepath, sep=";", index=False)
 
         logger.info(f"✅ Export concluído: {filepath}")
         return filepath
@@ -59,6 +59,9 @@ def extract_pipeline():
     def export_energia_hora():
         return _dump_table(schema="marts", table="mrt_energia_hora")
 
+    @task(task_id="export_inflation")
+    def export_inflation():
+        return _dump_table(schema="marts", table="mrt_inflation")
 
     # Se você quiser mais tabelas, cria mais @task copiando esse padrão.
 
@@ -67,6 +70,7 @@ def extract_pipeline():
     # Não vamos encadear com >> porque você pediu que elas sejam independentes.
     t1 = export_export_energia_e_clima()
     t2 = export_energia_hora()
+    t3 = export_inflation()
 
     # Nenhuma dependência entre dep, vot, par.
     # Isso significa:
@@ -75,7 +79,7 @@ def extract_pipeline():
     # - Você pode até só marcar "run" em uma task específica pela UI se quiser gerar só uma tabela.
 
     # opcional: você pode retornar algo aqui só pra não ficar "variável não usada"
-    return [t1, t2]
+    return [t1, t2, t3]
 
 
 dag = extract_pipeline()
