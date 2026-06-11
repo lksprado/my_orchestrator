@@ -2,13 +2,13 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
 from airflow.decorators import dag, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from pendulum import datetime, duration
 
-from include.local_setup.src.pipelines.legislativo.ecidadania.ecidadania_big_numbers import (
-    extract as extraction_big_numbers,
-    transform as transform_bignumbers,
+from include.local_setup.src.pipelines.legislativo.camara.camara_votos_orientacao import (
+    extract,
+    transform,
 )
 from include.local_setup.src.utils.loaders.postgres import PostgreSQLManager
 from include.local_setup.src.utils.pipeline_cfg import GenericETL, PipelineConfig, load_source_config
@@ -16,34 +16,28 @@ from include.local_setup.src.utils.pipeline_cfg import GenericETL, PipelineConfi
 _CONFIG_FILE = (
     Path(__file__).parent.parent
     / "include" / "local_setup" / "src" / "pipelines" / "legislativo"
-    / "ecidadania" / "ecidadania_config.yml"
+    / "camara" / "camara_config.yml"
 )
 
-logger = logging.getLogger("DAG: Ecidadania BigNumbers")
+logger = logging.getLogger("DAG: camara_votos_orientacao")
 
 
 @dag(
-    dag_id="ecidadania_bignumbers_pipeline",
-    start_date=datetime(2025, 11, 17),
-    schedule="00 15 * * *",
+    dag_id="camara_votos_orientacao_pipeline",
+    start_date=datetime(2025, 10, 24),
+    schedule="@weekly",
     catchup=False,
-    default_args={
-        "retries": 5,
-        "retry_delay": duration(seconds=5),
-        "retry_exponential_backoff": True,
-        "max_retry_delay": duration(hours=1),
-    },
     tags=["demodados"],
 )
-def bignumbers_pipeline():
-    cfg = PipelineConfig(**load_source_config(_CONFIG_FILE, source="big_numbers", env="airflow"))
+def votos_orientacao_pipeline():
+    cfg = PipelineConfig(**load_source_config(_CONFIG_FILE, source="votos_orientacao", env="airflow"))
     target = cfg.db_table
 
     hook = PostgresHook(postgres_conn_id="demodadosdw")
     engine = hook.get_sqlalchemy_engine()
     pg = PostgreSQLManager(engine=engine)
 
-    etl = GenericETL(cfg=cfg, extract_fn=extraction_big_numbers, load_fn=None, log=logger)
+    etl = GenericETL(cfg=cfg, extract_fn=extract, load_fn=None, log=logger)
 
     @task
     def t_extract():
@@ -51,7 +45,7 @@ def bignumbers_pipeline():
 
     @task
     def t_transform():
-        transform_bignumbers(cfg)
+        transform(cfg)
 
     @task
     def t_create_schema():
@@ -59,8 +53,6 @@ def bignumbers_pipeline():
 
     @task
     def t_load_staging():
-        import pandas as pd
-
         pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}")
         df = pd.read_csv(etl.cfg.bronze_filepath, sep=";")
         pg.send_df_to_db(df, table_name=etl.cfg.db_table, filename=etl.cfg.bronze_filepath.name)
@@ -86,15 +78,23 @@ def bignumbers_pipeline():
     def t_drop_stg_if_exists():
         pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table};")
 
-    extract = t_extract()
-    transform = t_transform()
+    extract_task = t_extract()
+    transform_task = t_transform()
     create_raw = t_create_schema()
     load_staging = t_load_staging()
     check_staging = t_check_staging_count()
     insert_into_target = t_insert()
     drop_staging = t_drop_stg_if_exists()
 
-    extract >> transform >> create_raw >> load_staging >> check_staging >> insert_into_target >> drop_staging
+    (
+        extract_task
+        >> transform_task
+        >> create_raw
+        >> load_staging
+        >> check_staging
+        >> insert_into_target
+        >> drop_staging
+    )
 
 
-dag = bignumbers_pipeline()
+dag = votos_orientacao_pipeline()

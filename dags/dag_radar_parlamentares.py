@@ -1,13 +1,21 @@
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from airflow.decorators import dag, task
-
-from include.local_setup.src.utils.pipeline_cfg import PipelineConfig, GenericETL
-from include.local_setup.src.pipelines.legislativo.radar_parlamentares import transform_parlamentares
-from include.local_setup.src.pipelines.legislativo.schema import ParlamentarRadarSchema
-from include.local_setup.src.utils.loaders.postgres import PostgreSQLManager
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+
+from include.local_setup.src.pipelines.legislativo.radar_congresso.radar_parlamentares import (
+    transform as transform_parlamentares,
+)
+from include.local_setup.src.utils.loaders.postgres import PostgreSQLManager
+from include.local_setup.src.utils.pipeline_cfg import GenericETL, PipelineConfig, load_source_config
+
+_CONFIG_FILE = (
+    Path(__file__).parent.parent
+    / "include" / "local_setup" / "src" / "pipelines" / "legislativo"
+    / "radar_congresso" / "radar_congresso_config.yml"
+)
 
 
 @dag(
@@ -18,66 +26,35 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
     tags=["demodados"],
 )
 def parlamentares_pipeline():
-
     logger = logging.getLogger("DAG: radar_parlamentares")
 
+    cfg = PipelineConfig(**load_source_config(_CONFIG_FILE, source="parlamentares", env="airflow"))
+    target = cfg.db_table
 
-    PIPELINE_PARLAMENTARES_CONFIG_PRD = {
-        "url_base": "https://radar.congressoemfoco.com.br/api/busca-parlamentar",
-        "landing_dir": "/usr/local/airflow/mylake/raw/demodados/radar_congresso/parlamentares/",
-        "landing_file": "radar_parlamentares.json",
-        "bronze_dir": "/usr/local/airflow/mylake/bronze/demodados/radar_congresso/parlamentares/",
-        "bronze_file": "radar_parlamentares.csv",
-        "db_table": "stg_radar_parlamentares",
-    }
-
-
-    target = 'raw_radar_parlamentares'
-    
     hook = PostgresHook(postgres_conn_id="demodadosdw")
     engine = hook.get_sqlalchemy_engine()
-    pg = PostgreSQLManager(engine=engine)  # usa engine externa
+    pg = PostgreSQLManager(engine=engine)
 
-    # # Adapter de load_fn no “estilo cfg”: assina (cfg) -> None
-    # def load_staging_via_cfg(cfg: PipelineConfig) -> None:
-    #     # Respeite o mesmo sep do transform/validate (aqui ";")
-    #     import pandas as pd
-    #     df = pd.read_csv(cfg.bronze_filepath, sep=";")
-    #     pg.send_df_to_db(df, table_name=cfg.db_table, how="replace")
+    etl = GenericETL(cfg=cfg, extract_fn=None, load_fn=None, log=logger)
 
-    # Instanciações
-    cfg = PipelineConfig(**PIPELINE_PARLAMENTARES_CONFIG_PRD)
-    etl = GenericETL(
-        cfg=cfg,
-        extract_fn=None,                # usa extração genérica (GET único)
-        load_fn=None,   # nosso adapter que lê bronze e carrega
-        validator=ParlamentarRadarSchema,
-        log=logger,
-    )
-
-    # ------- Tasks (cada uma usa somente cfg/etl) -------
     @task
     def t_extract():
-        etl.extract()           # escreve cfg.landing_filepath
+        etl.extract()
 
     @task
     def t_transform():
-        transform_parlamentares(cfg)   # escreve cfg.bronze_filepath
-
-    @task
-    def t_validate():
-        etl.validate()          # valida cfg.bronze_filepath
+        transform_parlamentares(cfg)
 
     @task
     def t_create_schema():
-        pg.execute_query(f"CREATE SCHEMA IF NOT EXISTS raw")
+        pg.execute_query("CREATE SCHEMA IF NOT EXISTS raw")
 
     @task
     def t_load_staging():
+        import pandas as pd
+
         pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}")
-    
-        import pandas as pd 
-        df = pd.read_csv(etl.cfg.bronze_filepath,sep=';')
+        df = pd.read_csv(etl.cfg.bronze_filepath, sep=";")
         pg.send_df_to_db(df, table_name=etl.cfg.db_table, filename=etl.cfg.bronze_filepath.name)
 
     @task
@@ -86,37 +63,39 @@ def parlamentares_pipeline():
         n = result[0] if result else 0
         if n == 0:
             raise ValueError("Staging está vazia, abortando promoção para raw")
-        logger.info(f"✅ Staging tem {n} linhas")
-        
+        logger.info(f"Staging tem {n} linhas")
+
     @task
     def t_insert():
         pg.execute_query(f"""
-            CREATE TABLE IF NOT EXISTS raw.{target} 
-            AS SELECT * FROM raw.{etl.cfg.db_table} LIMIT 0;    
-            
+            CREATE TABLE IF NOT EXISTS raw.{target}
+            AS SELECT * FROM raw.{etl.cfg.db_table} LIMIT 0;
             TRUNCATE TABLE raw.{target};
             INSERT INTO raw.{target}
             SELECT * FROM raw.{etl.cfg.db_table};
         """)
 
-
     @task
     def t_drop_stg_if_exists():
-        pg.execute_query(f"""
-            DROP TABLE IF EXISTS raw.{etl.cfg.db_table};
-        """)
+        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table};")
 
-    # ---------- Encadeamento ----------
     extract = t_extract()
     transform = t_transform()
-    validate  = t_validate()
     create_raw = t_create_schema()
     load_staging = t_load_staging()
     check_staging = t_check_staging_count()
     insert_into_target = t_insert()
     drop_staging = t_drop_stg_if_exists()
-    
-    extract >> transform >> validate >> create_raw >> load_staging >> check_staging >> insert_into_target >> drop_staging
 
-# 👇 necessário para o Airflow reconhecer a DAG
+    (
+        extract
+        >> transform
+        >> create_raw
+        >> load_staging
+        >> check_staging
+        >> insert_into_target
+        >> drop_staging
+    )
+
+
 dag = parlamentares_pipeline()

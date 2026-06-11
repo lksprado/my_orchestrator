@@ -1,23 +1,26 @@
 import logging
 from datetime import datetime
+from pathlib import Path
 
 from airflow.decorators import dag, task
-from pendulum import datetime, duration
-from include.local_setup.src.utils.pipeline_cfg import PipelineConfig, GenericETL
-from include.local_setup.src.pipelines.legislativo.senado_status import extraction_status, transform_status
-from include.local_setup.src.utils.loaders.postgres import PostgreSQLManager
 from airflow.providers.postgres.hooks.postgres import PostgresHook
+from pendulum import datetime, duration
+
+from include.local_setup.src.pipelines.legislativo.senado.senado_status import (
+    extract as extraction_status,
+    transform as transform_status,
+)
+from include.local_setup.src.utils.loaders.postgres import PostgreSQLManager
+from include.local_setup.src.utils.pipeline_cfg import GenericETL, PipelineConfig, load_source_config
+
+_CONFIG_FILE = (
+    Path(__file__).parent.parent
+    / "include" / "local_setup" / "src" / "pipelines" / "legislativo"
+    / "senado" / "senado_config.yml"
+)
 
 logger = logging.getLogger("DAG: Ecidadania Status")
 
-
-PIPELINE_CONFIG_PRD = {
-        "landing_dir": "/usr/local/airflow/mylake/raw/demodados/ecidadania/status",
-        "bronze_dir": "/usr/local/airflow/mylake/bronze/demodados/ecidadania/status",
-        "bronze_file": "senado_status_consolidado.csv",
-        "db_table": "stg_senado_status_raw",
-        "parameter_file": "/usr/local/airflow/mylake/bronze/demodados/ecidadania/paginas/ecidadania_paginas_consolidado.csv",
-}
 
 @dag(
     dag_id="ecidadania_status_pipeline",
@@ -32,22 +35,18 @@ PIPELINE_CONFIG_PRD = {
     },
     tags=["demodados"],
 )
-
 def status_pipeline():
-    target =  'raw_senado_status'
-    
+    # parameter_dir aponta para o bronze de ecidadania/paginas (dependência cross-pipeline)
+    config = load_source_config(_CONFIG_FILE, source="status", env="airflow")
+    config["parameter_dir"] = "/usr/local/airflow/mylake/bronze/demodados/ecidadania/paginas"
+    cfg = PipelineConfig(**config)
+    target = cfg.db_table
+
     hook = PostgresHook(postgres_conn_id="demodadosdw")
     engine = hook.get_sqlalchemy_engine()
-    pg = PostgreSQLManager(engine=engine)  # usa engine externa
-    # Instancia o ETL genérico
-    cfg = PipelineConfig(**PIPELINE_CONFIG_PRD)
-    etl = GenericETL(
-        cfg=cfg,
-        extract_fn=extraction_status,
-        load_fn=None,
-        validator=None,
-        log=logger,
-    )
+    pg = PostgreSQLManager(engine=engine)
+
+    etl = GenericETL(cfg=cfg, extract_fn=extraction_status, load_fn=None, log=logger)
 
     @task
     def t_extract():
@@ -59,14 +58,14 @@ def status_pipeline():
 
     @task
     def t_create_schema():
-        pg.execute_query(f"CREATE SCHEMA IF NOT EXISTS raw")
+        pg.execute_query("CREATE SCHEMA IF NOT EXISTS raw")
 
     @task
     def t_load_staging():
+        import pandas as pd
+
         pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}")
-    
-        import pandas as pd 
-        df = pd.read_csv(etl.cfg.bronze_filepath,sep=';')
+        df = pd.read_csv(etl.cfg.bronze_filepath, sep=";", dtype="str")
         pg.send_df_to_db(df, table_name=etl.cfg.db_table, filename=etl.cfg.bronze_filepath.name)
 
     @task
@@ -74,14 +73,13 @@ def status_pipeline():
         result = pg.fetchone(f"SELECT COUNT(*) FROM raw.{etl.cfg.db_table}")
         if not result or result[0] == 0:
             raise ValueError("Staging está vazia, abortando promoção para raw")
-        logger.info(f"✅ Staging tem {result[0]} linhas")
+        logger.info(f"Staging tem {result[0]} linhas")
 
     @task
     def t_insert():
         pg.execute_query(f"""
-            CREATE TABLE IF NOT EXISTS raw.{target} 
-            AS SELECT * FROM raw.{etl.cfg.db_table} LIMIT 0;            
-            
+            CREATE TABLE IF NOT EXISTS raw.{target}
+            AS SELECT * FROM raw.{etl.cfg.db_table} LIMIT 0;
             TRUNCATE TABLE raw.{target};
             INSERT INTO raw.{target}
             SELECT * FROM raw.{etl.cfg.db_table};
@@ -89,9 +87,7 @@ def status_pipeline():
 
     @task
     def t_drop_stg_if_exists():
-        pg.execute_query(f"""
-            DROP TABLE IF EXISTS raw.{etl.cfg.db_table};
-        """)
+        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table};")
 
     extract = t_extract()
     transform = t_transform()
@@ -100,9 +96,16 @@ def status_pipeline():
     check_staging = t_check_staging_count()
     insert_into_target = t_insert()
     drop_staging = t_drop_stg_if_exists()
-    
-    # extract >> transform >> validate >> load_staging >> check_staging >> insert_into_target >> drop_staging
-    extract >> transform >> create_raw >> load_staging >> check_staging >> insert_into_target >> drop_staging
-    
-# 👇 necessário para o Airflow reconhecer a DAG
+
+    (
+        extract
+        >> transform
+        >> create_raw
+        >> load_staging
+        >> check_staging
+        >> insert_into_target
+        >> drop_staging
+    )
+
+
 dag = status_pipeline()
