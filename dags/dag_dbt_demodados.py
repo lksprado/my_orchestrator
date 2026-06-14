@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from cosmos import DbtDag, ExecutionConfig, ProfileConfig, ProjectConfig
 from cosmos.profiles import PostgresUserPasswordProfileMapping
@@ -29,8 +30,8 @@ my_cosmos_dag = DbtDag(
         "install_deps": True,
         "target": profile_config.target_name,
     },
-    # schedule="@weekly",
-    # start_date=datetime(2025, 10, 25, 21, 5),
+    schedule="0 0 * * *",
+    start_date=datetime(2025, 10, 25, 21, 5),
     catchup=False,
     dag_id="dag_dbt_demodados",
     default_args={"retries": 2},
