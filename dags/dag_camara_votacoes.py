@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 from airflow.decorators import dag, task
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 from include.local_setup.src.pipelines.legislativo.camara.camara_votacoes import (
@@ -11,12 +12,21 @@ from include.local_setup.src.pipelines.legislativo.camara.camara_votacoes import
     transform,
 )
 from include.local_setup.src.utils.loaders.postgres import PostgreSQLManager
-from include.local_setup.src.utils.pipeline_cfg import GenericETL, PipelineConfig, load_source_config
+from include.local_setup.src.utils.pipeline_cfg import (
+    GenericETL,
+    PipelineConfig,
+    load_source_config,
+)
 
 _CONFIG_FILE = (
     Path(__file__).parent.parent
-    / "include" / "local_setup" / "src" / "pipelines" / "legislativo"
-    / "camara" / "camara_config.yml"
+    / "include"
+    / "local_setup"
+    / "src"
+    / "pipelines"
+    / "legislativo"
+    / "camara"
+    / "camara_config.yml"
 )
 
 logger = logging.getLogger("DAG: camara_votacoes")
@@ -24,13 +34,15 @@ logger = logging.getLogger("DAG: camara_votacoes")
 
 @dag(
     dag_id="camara_votacoes_pipeline",
-    start_date=datetime(2025, 10, 24),
+    start_date=datetime(2026, 6, 19),
     schedule="@weekly",
     catchup=False,
     tags=["demodados"],
 )
 def votacoes_pipeline():
-    cfg = PipelineConfig(**load_source_config(_CONFIG_FILE, source="votacoes", env="airflow"))
+    cfg = PipelineConfig(
+        **load_source_config(_CONFIG_FILE, source="votacoes", env="airflow")
+    )
     target = cfg.db_table
 
     hook = PostgresHook(postgres_conn_id="demodadosdw")
@@ -53,13 +65,15 @@ def votacoes_pipeline():
 
     @task
     def t_load_staging():
-        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}")
+        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg")
         df = pd.read_csv(etl.cfg.bronze_filepath, sep=";")
-        pg.send_df_to_db(df, table_name=etl.cfg.db_table, filename=etl.cfg.bronze_filepath.name)
+        pg.send_df_to_db(
+            df, table_name=f"{etl.cfg.db_table}_stg", filename=etl.cfg.bronze_filepath.name
+        )
 
     @task
     def t_check_staging_count():
-        result = pg.fetchone(f"SELECT COUNT(*) FROM raw.{etl.cfg.db_table}")
+        result = pg.fetchone(f"SELECT COUNT(*) FROM raw.{etl.cfg.db_table}_stg")
         if not result or result[0] == 0:
             raise ValueError("Staging está vazia, abortando promoção para raw")
         logger.info(f"Staging tem {result[0]} linhas")
@@ -68,15 +82,27 @@ def votacoes_pipeline():
     def t_insert():
         pg.execute_query(f"""
             CREATE TABLE IF NOT EXISTS raw.{target}
-            AS SELECT * FROM raw.{etl.cfg.db_table} LIMIT 0;
+            AS SELECT * FROM raw.{etl.cfg.db_table}_stg LIMIT 0;
             TRUNCATE TABLE raw.{target};
             INSERT INTO raw.{target}
-            SELECT * FROM raw.{etl.cfg.db_table};
+            SELECT * FROM raw.{etl.cfg.db_table}_stg;
         """)
 
     @task
     def t_drop_stg_if_exists():
-        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table};")
+        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg;")
+
+    trigger_votos_deputados = TriggerDagRunOperator(
+        task_id="trigger_votos_deputados",
+        trigger_dag_id="camara_votos_deputados_pipeline",
+        wait_for_completion=False,
+    )
+
+    trigger_votos_orientacao = TriggerDagRunOperator(
+        task_id="trigger_votos_orientacao",
+        trigger_dag_id="camara_votos_orientacao_pipeline",
+        wait_for_completion=False,
+    )
 
     extract_task = t_extract()
     transform_task = t_transform()
@@ -94,6 +120,7 @@ def votacoes_pipeline():
         >> check_staging
         >> insert_into_target
         >> drop_staging
+        >> [trigger_votos_deputados, trigger_votos_orientacao]
     )
 
 

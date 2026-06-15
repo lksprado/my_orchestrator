@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime
 import os
+from datetime import datetime
 
 import pandas as pd
 from airflow.decorators import dag, task
@@ -41,7 +41,7 @@ def extract_pipeline():
         filepath = os.path.join(GOLD_DIR, filename)
 
         # 3. Salva CSV
-        df.to_csv(filepath, sep=';', index=False)
+        df.to_csv(filepath, sep=";", index=False)
 
         logger.info(f"✅ Export concluído: {filepath}")
         return filepath
@@ -51,18 +51,17 @@ def extract_pipeline():
     # Você pode ir adicionando/removendo tasks depois, bem fácil.
     #
 
-    @task(task_id="export_governismo_parlamentares_trimestre")
-    def export_governismo_parlamentares_trimestre():
-        return _dump_table(schema="marts", table="mrt_governismo_parlamentares_trimestral")
+    # @task(task_id="export_governismo_parlamentares_trimestre")
+    # def export_governismo_parlamentares_trimestre():
+    #     return _dump_table(schema="marts", table="mrt_governismo_parlamentares_trimestral")
 
-    @task(task_id="export_governismo_parlamentares")
-    def export_governismo_parlamentares():
-        return _dump_table(schema="marts", table="mrt_governismo_parlamentares")
+    # @task(task_id="export_governismo_parlamentares")
+    # def export_governismo_parlamentares():
+    #     return _dump_table(schema="marts", table="mrt_governismo_parlamentares")
 
-
-    @task(task_id="export_obt_parlamentares")
-    def export_obt_parlamentares():
-        return _dump_table(schema="marts", table="mrt_obt_parlamentares")
+    @task(task_id="export_obt_governismo")
+    def export_obt_governismo():
+        return _dump_table(schema="marts", table="mrt_governismo")
 
     @task(task_id="export_obt_bignumbers")
     def export_bignumbers():
@@ -77,12 +76,9 @@ def extract_pipeline():
     # IMPORTANTE:
     # Aqui a gente simplesmente INSTANCIA as tasks.
     # Não vamos encadear com >> porque você pediu que elas sejam independentes.
-    t1 = export_governismo_parlamentares_trimestre()
-    t2 = export_governismo_parlamentares()
-    t3 = export_obt_parlamentares()
-    t4 = export_bignumbers()
-    t5 = export_proposicoes()
-    
+    t1 = export_obt_governismo()
+    t2 = export_bignumbers()
+    t3 = export_proposicoes()
 
     # Nenhuma dependência entre dep, vot, par.
     # Isso significa:
@@ -91,7 +87,7 @@ def extract_pipeline():
     # - Você pode até só marcar "run" em uma task específica pela UI se quiser gerar só uma tabela.
 
     # opcional: você pode retornar algo aqui só pra não ficar "variável não usada"
-    return [t1, t2, t3, t4, t5]
+    return [t1, t2, t3]
 
 
 dag = extract_pipeline()

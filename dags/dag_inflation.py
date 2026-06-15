@@ -31,8 +31,8 @@ default_args = {
 )
 def inflation_etl():
     output_folder = Path("/usr/local/airflow/mylake/raw/inflation/atacadao")
-    store_file = Path("/usr/local/airflow/mylake/inflation/src/store_config.yml")
-    products_file = Path("/usr/local/airflow/mylake/inflation/src/products_config.yml")
+    store_file = Path("/usr/local/airflow/include/inflation/src/store_config.yml")
+    products_file = Path("/usr/local/airflow/include/inflation/src/products_config.yml")
 
     @task
     def extraction():

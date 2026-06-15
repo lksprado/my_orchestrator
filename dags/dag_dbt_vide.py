@@ -20,7 +20,7 @@ my_cosmos_dag = DbtDag(
     profile_config=profile_config_dev,
     render_config=RenderConfig(
         load_method=LoadMode.DBT_LS,
-        selector="vide",
+        selector="livros",
         dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt",
         dbt_deps=True,
     ),
@@ -34,5 +34,5 @@ my_cosmos_dag = DbtDag(
     catchup=False,
     dag_id="dag_dbt_vide",
     default_args={"retries": 2},
-    tags=["nhl"],
+    tags=["livros"],
 )

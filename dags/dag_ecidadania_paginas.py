@@ -61,13 +61,13 @@ def paginas_pipeline():
     def t_load_staging():
         import pandas as pd
 
-        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}")
+        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg")
         df = pd.read_csv(etl.cfg.bronze_filepath, sep=";")
-        pg.send_df_to_db(df, table_name=etl.cfg.db_table, filename=etl.cfg.bronze_filepath.name)
+        pg.send_df_to_db(df, table_name=f"{etl.cfg.db_table}_stg", filename=etl.cfg.bronze_filepath.name)
 
     @task
     def t_check_staging_count():
-        result = pg.fetchone(f"SELECT COUNT(*) FROM raw.{etl.cfg.db_table}")
+        result = pg.fetchone(f"SELECT COUNT(*) FROM raw.{etl.cfg.db_table}_stg")
         if not result or result[0] == 0:
             raise ValueError("Staging está vazia, abortando promoção para raw")
         logger.info(f"Staging tem {result[0]} linhas")
@@ -76,15 +76,15 @@ def paginas_pipeline():
     def t_insert():
         pg.execute_query(f"""
             CREATE TABLE IF NOT EXISTS raw.{target}
-            AS SELECT * FROM raw.{etl.cfg.db_table} LIMIT 0;
+            AS SELECT * FROM raw.{etl.cfg.db_table}_stg LIMIT 0;
             TRUNCATE TABLE raw.{target};
             INSERT INTO raw.{target}
-            SELECT * FROM raw.{etl.cfg.db_table};
+            SELECT * FROM raw.{etl.cfg.db_table}_stg;
         """)
 
     @task
     def t_drop_stg_if_exists():
-        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table};")
+        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg;")
 
     extract = t_extract()
     transform = t_transform()
