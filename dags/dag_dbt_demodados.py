@@ -27,7 +27,6 @@ my_cosmos_dag = DbtDag(
         dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt",
     ),
     operator_args={
-        "install_deps": True,
         "target": profile_config.target_name,
     },
     schedule="0 0 * * *",

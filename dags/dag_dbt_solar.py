@@ -26,7 +26,6 @@ my_cosmos_dag = DbtDag(
         dbt_deps=True,
     ),
     operator_args={
-        "install_deps": True,
         "target": profile_config_dev.target_name,
         "threads": 1,
     },
