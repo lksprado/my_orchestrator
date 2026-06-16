@@ -1,9 +1,10 @@
 import os
+from datetime import datetime
 
-from cosmos import DbtDag, LoadMode, ProfileConfig, ProjectConfig, RenderConfig
+from cosmos import DbtDag, ExecutionConfig, ProfileConfig, ProjectConfig
 from cosmos.profiles import PostgresUserPasswordProfileMapping
 
-profile_config_dev = ProfileConfig(
+profile_config = ProfileConfig(
     profile_name="my_datawarehouse",
     target_name="dev",
     profile_mapping=PostgresUserPasswordProfileMapping(
@@ -14,24 +15,22 @@ profile_config_dev = ProfileConfig(
 
 my_cosmos_dag = DbtDag(
     project_config=ProjectConfig(
-        dbt_project_path="/usr/local/airflow/dbt/my_datawarehouse",  ### caminho dentro da maquina docker
+        dbt_project_path="/usr/local/airflow/dbt/my_datawarehouse",
         project_name="my_datawarehouse",
     ),
-    profile_config=profile_config_dev,
-    render_config=RenderConfig(
-        load_method=LoadMode.DBT_LS,
-        selector="livros",
+    profile_config=profile_config,
+    execution_config=ExecutionConfig(
         dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt",
-        dbt_deps=True,
     ),
     operator_args={
-        "target": profile_config_dev.target_name,
+        "target": profile_config.target_name,
         "threads": 1,
     },
-    # schedule="@weekly",
-    # start_date=datetime(2025, 10, 25, 21, 5),
+    schedule="30 9 * * *",
+    start_date=datetime(2026, 6, 15),
     catchup=False,
-    dag_id="dag_dbt_vide",
+    dag_id="dag_dbt_my_datawarehouse",
     default_args={"retries": 2},
-    tags=["livros"],
+    tags=["nhl", "atibaia", "inflation", "livros"],
+    max_active_tasks=2,
 )

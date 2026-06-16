@@ -44,8 +44,6 @@ Orquestração Apache Airflow (Astronomer 3.0 / Airflow 2.10.x) com pipelines de
 | `dag_solar_full_etl` | Reprocessamento histórico solar | manual |
 | `dag_weather_etl` | OpenWeather → raw + S3 | diário 01:00 |
 | `dag_weather_full` | Reprocessamento histórico clima | manual |
-| `dag_dbt_solar` | DBT selector `energia` | diário 02:00 |
-| `dag_extract_marts` | Exporta marts (solar, inflação) para CSV | diário 03:30 |
 
 ### NHL
 
@@ -68,7 +66,6 @@ Orquestração Apache Airflow (Astronomer 3.0 / Airflow 2.10.x) com pipelines de
 | DAG | Descrição | Schedule (UTC) |
 |-----|-----------|----------------|
 | `dag_inflation` | Preços Atacadão → raw | dia 28 07:00 |
-| `dag_dbt_inflation` | DBT selector `inflation` | *triggered* |
 
 ### Livros (Vide Editorial)
 
@@ -76,7 +73,13 @@ Orquestração Apache Airflow (Astronomer 3.0 / Airflow 2.10.x) com pipelines de
 |-----|-----------|----------------|
 | `dag_vide_home` | Livros em destaque (homepage) | diário 06:30 |
 | `dag_vide_pages` | Páginas e categorias | Sex 07:00 |
-| `dag_dbt_vide` | DBT selector `livros` | *triggered* |
+
+### DBT & Exportação (my_datawarehouse)
+
+| DAG | Descrição | Schedule (UTC) |
+|-----|-----------|----------------|
+| `dag_dbt_my_datawarehouse` | DBT projeto completo: NHL, solar, inflação, livros | diário 09:30 |
+| `dag_extract_my_datawarehouse` | Exporta marts para CSV (energia, inflação) | diário 03:30 |
 
 ## Licença
 

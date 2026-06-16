@@ -28,6 +28,7 @@ my_cosmos_dag = DbtDag(
     ),
     operator_args={
         "target": profile_config.target_name,
+        "threads": 1,
     },
     schedule="0 3 * * *",
     start_date=datetime(2026, 6, 25, 0, 20),
@@ -35,4 +36,5 @@ my_cosmos_dag = DbtDag(
     dag_id="dag_dbt_demodados",
     default_args={"retries": 2},
     tags=["demodados"],
+    max_active_tasks=2,
 )

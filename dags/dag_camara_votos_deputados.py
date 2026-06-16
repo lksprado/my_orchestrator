@@ -11,12 +11,21 @@ from include.local_setup.src.pipelines.legislativo.camara.camara_votos_deputados
     transform,
 )
 from include.local_setup.src.utils.loaders.postgres import PostgreSQLManager
-from include.local_setup.src.utils.pipeline_cfg import GenericETL, PipelineConfig, load_source_config
+from include.local_setup.src.utils.pipeline_cfg import (
+    GenericETL,
+    PipelineConfig,
+    load_source_config,
+)
 
 _CONFIG_FILE = (
     Path(__file__).parent.parent
-    / "include" / "local_setup" / "src" / "pipelines" / "legislativo"
-    / "camara" / "camara_config.yml"
+    / "include"
+    / "local_setup"
+    / "src"
+    / "pipelines"
+    / "legislativo"
+    / "camara"
+    / "camara_config.yml"
 )
 
 logger = logging.getLogger("DAG: camara_votos_deputados")
@@ -24,13 +33,15 @@ logger = logging.getLogger("DAG: camara_votos_deputados")
 
 @dag(
     dag_id="camara_votos_deputados_pipeline",
-    start_date=datetime(2025, 10, 24),
-    schedule=None,
+    start_date=datetime(2026, 6, 21),
+    schedule="0 1 * * SAT",
     catchup=False,
     tags=["demodados"],
 )
 def votos_deputados_pipeline():
-    cfg = PipelineConfig(**load_source_config(_CONFIG_FILE, source="votos_deputados", env="airflow"))
+    cfg = PipelineConfig(
+        **load_source_config(_CONFIG_FILE, source="votos_deputados", env="airflow")
+    )
     target = cfg.db_table
 
     hook = PostgresHook(postgres_conn_id="demodadosdw")
@@ -55,7 +66,11 @@ def votos_deputados_pipeline():
     def t_load_staging():
         pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg")
         df = pd.read_csv(etl.cfg.bronze_filepath, sep=";")
-        pg.send_df_to_db(df, table_name=f"{etl.cfg.db_table}_stg", filename=etl.cfg.bronze_filepath.name)
+        pg.send_df_to_db(
+            df,
+            table_name=f"{etl.cfg.db_table}_stg",
+            filename=etl.cfg.bronze_filepath.name,
+        )
 
     @task
     def t_check_staging_count():

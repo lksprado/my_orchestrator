@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta
 
 from airflow.decorators import dag, task
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-
 from include.utils.db_interactors import send_single_batch_df_to_db
 from include.vide.src.main import extract_link_content
 
@@ -39,17 +37,10 @@ def vide_pages_etl():
             table_name="vide_raw_category_pages",
         )
 
-    trigger_dbt = TriggerDagRunOperator(
-        task_id="trigger_dbt",
-        trigger_dag_id="dag_dbt_vide",
-        wait_for_completion=True,
-        reset_dag_run=True,
-    )
-
     extraction = make_request()
     load = load_raw()
 
-    extraction >> load >> trigger_dbt
+    extraction >> load
 
 
 dag = vide_pages_etl()
