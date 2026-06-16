@@ -1,1 +1,12 @@
 test_demodadosdw.py
+dag_dbt_nhl.py
+dag_nhl_club_stats.py
+dag_nhl_game_log.py
+dag_nhl_games_details.py
+dag_nhl_games_play_by_play.py
+dag_nhl_games_summary_details.py
+dag_nhl_games_summary.py
+dag_nhl_master.py
+dag_nhl_players.py
+dag_nhl_seasons.py
+dag_nhl_teams.py
