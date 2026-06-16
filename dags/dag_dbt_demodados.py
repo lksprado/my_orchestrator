@@ -29,8 +29,8 @@ my_cosmos_dag = DbtDag(
     operator_args={
         "target": profile_config.target_name,
     },
-    schedule="0 0 * * *",
-    start_date=datetime(2025, 10, 25, 21, 5),
+    schedule="0 3 * * *",
+    start_date=datetime(2026, 6, 25, 0, 20),
     catchup=False,
     dag_id="dag_dbt_demodados",
     default_args={"retries": 2},

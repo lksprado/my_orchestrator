@@ -33,7 +33,7 @@ _CONFIG_FILE = (
 @dag(
     dag_id="ranking_senadores_pipeline",
     start_date=datetime(2026, 6, 20),
-    schedule="@weekly",
+    schedule="30 7 * * 1",
     catchup=False,
     tags=["demodados"],
 )

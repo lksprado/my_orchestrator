@@ -25,7 +25,7 @@ logger = logging.getLogger("DAG: Ecidadania MaisVotados")
 @dag(
     dag_id="ecidadania_maisvotados_pipeline",
     start_date=datetime(2025, 11, 17),
-    schedule="00 15 * * *",
+    schedule="30 5 * * *",
     catchup=False,
     default_args={
         "retries": 5,

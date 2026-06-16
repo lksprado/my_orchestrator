@@ -35,7 +35,7 @@ logger = logging.getLogger("DAG: camara_votacoes")
 @dag(
     dag_id="camara_votacoes_pipeline",
     start_date=datetime(2026, 6, 19),
-    schedule="@weekly",
+    schedule="30 2 * * 1",
     catchup=False,
     tags=["demodados"],
 )

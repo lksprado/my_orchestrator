@@ -26,7 +26,7 @@ default_args = {
     dag_id="nhl_seasons",
     default_args=default_args,
     description="ETL for NHL Data with dbt",
-    schedule="00 00 01 10 *",
+    schedule="0 3 1 10 *",
     catchup=False,
 )
 def nhl_teams():

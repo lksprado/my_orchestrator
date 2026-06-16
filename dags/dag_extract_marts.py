@@ -10,7 +10,7 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 @dag(
     dag_id="extract_postgres_marts",
     start_date=datetime(2025, 11, 17),
-    schedule="55 2 * * *",
+    schedule="30 3 * * *",
     catchup=False,
     tags=["gold"],
 )

@@ -81,7 +81,7 @@ default_args = {
     default_args=default_args,
     description="ETL for Weather Data",
     start_date=datetime(2025, 9, 21),
-    schedule="55 23 * * *",
+    schedule="0 1 * * *",
     catchup=False,
     tags=["atibaia"]
 )

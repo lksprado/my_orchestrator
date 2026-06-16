@@ -25,7 +25,7 @@ logger = logging.getLogger("DAG: Ecidadania Status")
 @dag(
     dag_id="ecidadania_status_pipeline",
     start_date=datetime(2025, 11, 17),
-    schedule="00 15 * * *",
+    schedule="0 6 * * *",
     catchup=False,
     default_args={
         "retries": 5,

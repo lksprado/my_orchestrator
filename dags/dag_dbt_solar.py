@@ -29,7 +29,7 @@ my_cosmos_dag = DbtDag(
         "target": profile_config_dev.target_name,
         "threads": 1,
     },
-    schedule="@daily",
+    schedule="0 2 * * *",
     start_date=datetime(2026, 2, 1, 23, 59),
     catchup=False,
     dag_id="dag_dbt_solar",

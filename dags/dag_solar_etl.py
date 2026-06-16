@@ -67,7 +67,7 @@ default_args = {
     dag_id="solar_etl",
     default_args=default_args,
     description="ETL for Solar Data",
-    schedule="55 23 * * *",
+    schedule="0 0 * * *",
     catchup=False,
     tags=["atibaia"]
 )

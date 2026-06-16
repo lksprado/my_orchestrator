@@ -25,7 +25,7 @@ default_args = {
     dag_id="inflation_etl",
     default_args=default_args,
     description="EL for Atacadao",
-    schedule="0 0 28 * *",
+    schedule="0 7 28 * *",
     catchup=False,
     tags=["inflation"],
 )

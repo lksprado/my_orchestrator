@@ -17,7 +17,7 @@ default_args = {
     default_args=default_args,
     description="ETL for VIde",
     start_date=datetime(2026, 1, 21),
-    schedule="00 20 * * *",
+    schedule="30 6 * * *",
     catchup=False,
     tags=["livros"],
 )

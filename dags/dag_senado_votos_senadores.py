@@ -24,7 +24,7 @@ logger = logging.getLogger("DAG: senado_votos_senadores")
 @dag(
     dag_id="senado_votos_senadores_pipeline",
     start_date=datetime(2025, 10, 24),
-    schedule="@monthly",
+    schedule="30 4 1 * *",
     catchup=False,
     tags=["demodados"],
 )
