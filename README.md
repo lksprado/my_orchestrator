@@ -1,77 +1,83 @@
-# Projeto: Airflow3
+# Airflow3
 
-Este repositório contém um conjunto de DAGs (Directed Acyclic Graphs) para orquestração de workflows utilizando o Apache Airflow. O objetivo principal deste projeto é demonstrar a capacidade de automação e integração de diferentes fontes de dados e processos de ETL (Extract, Transform, Load).
+Orquestração Apache Airflow (Astronomer 3.0 / Airflow 2.10.x) com pipelines de ETL em PostgreSQL seguindo arquitetura medallion: raw → dbt (bronze/silver/gold) → exportação CSV.
 
-## Estrutura do Projeto
+**UI:** http://localhost:8080 | **API:** http://localhost:8090
 
-- **dags/**: Contém os arquivos Python que definem as DAGs do Airflow. Cada arquivo representa um workflow específico.
-- **dbt/**: Diretório para projetos DBT (Data Build Tool), que inclui modelos, análises e pacotes necessários para a transformação de dados.
-- **include/**: Contém módulos e scripts auxiliares utilizados nas DAGs e processos de ETL.
-- **local_setup/**: Configurações locais, incluindo arquivos de docker-compose e requisitos de ambiente.
-- **nhl_extraction/**: Scripts específicos para extração de dados relacionados à NHL (National Hockey League).
-- **openweather/**: Scripts para integração com a API OpenWeather para coleta de dados meteorológicos.
-- **Solar/**: Scripts e configurações para projetos relacionados à energia solar.
-- **tests/**: Contém testes automatizados para garantir a qualidade e funcionalidade das DAGs e scripts.
+## Estrutura
 
-## Objetivos do Projeto
+| Diretório | Descrição |
+|-----------|-----------|
+| `dags/` | DAG files — um por pipeline |
+| `include/` | Módulos ETL por domínio (git submodules) |
+| `dbt/` | `my_datawarehouse` (NHL, solar, inflação, livros) e `demodadosdw` (dados políticos) |
+| `tests/` | Validação de importação e conexões |
 
-- Demonstrar a automação de processos de ETL utilizando o Apache Airflow.
-- Integrar diferentes fontes de dados, como APIs e bancos de dados, em um fluxo de trabalho coeso.
-- Facilitar a visualização e monitoramento de workflows através da interface do Airflow.
+## DAGs
 
-## Projetos nas DAGs
+### Dados Políticos
 
-### 1. DAG: `dag_dbt_demodados_full.py`
-Esta DAG é responsável por executar um fluxo completo de ETL utilizando o DBT para transformar dados de demodados. Ela integra dados de várias fontes e aplica transformações necessárias para análise.
+| DAG | Descrição | Schedule (UTC) |
+|-----|-----------|----------------|
+| `dag_camara_votacoes` | Votações da Câmara, dispara sub-pipelines | Seg 02:30 |
+| `dag_camara_votos_deputados` | Votos por deputado | *triggered* |
+| `dag_camara_votos_orientacao` | Orientação de votos por partido | *triggered* |
+| `dag_senado_votacoes` | Votações do Senado | dia 1 02:30 |
+| `dag_senado_votos_orientacao` | Orientação de votos no Senado | dia 1 03:30 |
+| `dag_senado_votos_senadores` | Votos individuais de senadores | dia 1 04:30 |
+| `dag_ecidadania_bignumbers` | Big numbers do e-Cidadania | diário 05:00 |
+| `dag_ecidadania_maisvotados` | Matérias mais votadas | diário 05:30 |
+| `dag_ecidadania_status` | Status de matérias | diário 06:00 |
+| `dag_ecidadania_paginas` | Paginação do portal | dia 20 06:30 |
+| `dag_deputados` | Dados cadastrais de deputados | manual |
+| `dag_senadores` | Dados cadastrais de senadores | manual |
+| `dag_ranking_deputados` | Ranking de deputados (Politicos.org.br) | Seg 07:00 |
+| `dag_ranking_senadores` | Ranking de senadores (Politicos.org.br) | Seg 07:30 |
+| `dag_dbt_demodados` | DBT projeto `demodadosdw` | diário 03:00 |
+| `dag_extract_demodados` | Exporta gold layer do demodados para CSV | diário 04:30 |
 
-### 2. DAG: `dag_dbt_mydw_full.py`
-Foca na construção de um data warehouse, utilizando o DBT para modelar e transformar dados. Esta DAG garante que os dados estejam prontos para relatórios e análises.
+### Solar & Clima
 
-### 3. DAG: `dag_deputados.py`
-Coleta e processa dados sobre deputados, integrando informações de diferentes fontes para análise política e legislativa.
+| DAG | Descrição | Schedule (UTC) |
+|-----|-----------|----------------|
+| `dag_solar_etl` | Energia solar (APSYSTEM) → raw + S3 | diário 00:00 |
+| `dag_solar_full_etl` | Reprocessamento histórico solar | manual |
+| `dag_weather_etl` | OpenWeather → raw + S3 | diário 01:00 |
+| `dag_weather_full` | Reprocessamento histórico clima | manual |
+| `dag_dbt_solar` | DBT selector `energia` | diário 02:00 |
+| `dag_extract_marts` | Exporta marts (solar, inflação) para CSV | diário 03:30 |
 
-### 4. DAG: `dag_ecidadania_bignumbers.py`
-Esta DAG analisa grandes volumes de dados relacionados à cidadania, extraindo insights e métricas relevantes.
+### NHL
 
-### 5. DAG: `dag_ecidadania_maisvotados.py`
-Foca na coleta e análise de dados sobre os candidatos mais votados, permitindo uma visão clara do cenário eleitoral.
+| DAG | Descrição | Schedule (UTC) |
+|-----|-----------|----------------|
+| `dag_nhl_master` | Orquestra todo o pipeline NHL | diário 08:00 |
+| `dag_nhl_games_summary` | Resumo de partidas | *triggered* |
+| `dag_nhl_games_summary_details` | Detalhes do resumo | *triggered* |
+| `dag_nhl_games_details` | Detalhes completos de partidas | *triggered* |
+| `dag_nhl_games_play_by_play` | Play-by-play | *triggered* |
+| `dag_nhl_game_log` | Logs por jogador | *triggered* |
+| `dag_nhl_club_stats` | Estatísticas de clubes | *triggered* |
+| `dag_nhl_players` | Dados de jogadores | *triggered* |
+| `dag_nhl_seasons` | Temporadas | 1 out 02:00 |
+| `dag_nhl_teams` | Times | 1 out 03:00 |
+| `dag_dbt_nhl` | DBT selector `nhl` | *triggered* |
 
-### 6. DAG: `dag_ecidadania_paginas.py`
-Responsável por coletar dados de páginas relacionadas à cidadania, integrando informações de diferentes fontes.
+### Inflação
 
-### 7. DAG: `dag_ecidadania_status.py`
-Monitora e analisa o status de processos relacionados à cidadania, garantindo que as informações estejam sempre atualizadas.
+| DAG | Descrição | Schedule (UTC) |
+|-----|-----------|----------------|
+| `dag_inflation` | Preços Atacadão → raw | dia 28 07:00 |
+| `dag_dbt_inflation` | DBT selector `inflation` | *triggered* |
 
-### 8. DAG: `dag_extract_demodados.py`
-Extrai dados de demodados para posterior transformação e análise, garantindo que as informações estejam disponíveis para uso.
+### Livros (Vide Editorial)
 
-### 9. DAG: `dag_extract_marts.py`
-Foca na extração de dados de marts, preparando-os para análises mais profundas.
-
-### 10. DAG: `dag_governismo_deputados.py`
-Analisa dados relacionados ao governismo e deputados, permitindo uma visão clara das interações políticas.
-
-### 11. DAG: `dag_governismo_senadores.py`
-Semelhante à DAG anterior, mais focada em senadores e suas interações políticas.
-
-### 12. DAG: `dag_nhl_*`
-Um conjunto de DAGs que coleta e analisa dados da NHL, incluindo estatísticas de jogos, detalhes de partidas e informações sobre equipes e jogadores.
-
-### 13. DAG: `dag_radar_parlamentares.py`
-Monitora e analisa a atividade parlamentar, fornecendo insights sobre o desempenho dos parlamentares.
-
-### 14. DAG: `dag_ranking_parlamentares.py`
-Classifica parlamentares com base em diferentes métricas, permitindo uma análise comparativa.
-
-### 15. DAG: `dag_senadores.py`
-Coleta e processa dados sobre senadores, integrando informações relevantes para análise legislativa.
-
-### 16. DAG: `dag_solar_etl.py` e `dag_solar_full_etl.py`
-Estas DAGs são responsáveis por processos de ETL relacionados à energia solar, integrando dados de diferentes fontes para análise e relatórios.
-
-### 17. DAG: `dag_weather_etl.py` e `dag_weather_full.py`
-Coletam e processam dados meteorológicos, permitindo análises sobre padrões climáticos e suas implicações.
+| DAG | Descrição | Schedule (UTC) |
+|-----|-----------|----------------|
+| `dag_vide_home` | Livros em destaque (homepage) | diário 06:30 |
+| `dag_vide_pages` | Páginas e categorias | Sex 07:00 |
+| `dag_dbt_vide` | DBT selector `livros` | *triggered* |
 
 ## Licença
 
-Este projeto está licenciado sob a MIT License. Veja o arquivo LICENSE para mais detalhes.
+MIT
