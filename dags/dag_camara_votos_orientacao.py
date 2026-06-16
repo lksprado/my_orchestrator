@@ -33,7 +33,7 @@ logger = logging.getLogger("DAG: camara_votos_orientacao")
 
 @dag(
     dag_id="camara_votos_orientacao_pipeline",
-    start_date=datetime(2026, 6, 21),
+    start_date=datetime(2026, 6, 14),
     schedule="30 1 * * SAT",
     catchup=False,
     tags=["demodados"],
