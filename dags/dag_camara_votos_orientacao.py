@@ -34,7 +34,9 @@ logger = logging.getLogger("DAG: camara_votos_orientacao")
 @dag(
     dag_id="camara_votos_orientacao_pipeline",
     start_date=datetime(2026, 6, 14),
-    schedule="30 1 * * SAT",
+    # Sem schedule proprio: roda apenas quando disparado por
+    # camara_votacoes_pipeline (logo apos a atualizacao de id_votacoes.csv).
+    schedule=None,
     catchup=False,
     tags=["demodados"],
 )
