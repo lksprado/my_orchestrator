@@ -2,7 +2,6 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
 from airflow.decorators import dag, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
@@ -65,9 +64,8 @@ def votos_deputados_pipeline():
     @task
     def t_load_staging():
         pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg")
-        df = pd.read_csv(etl.cfg.bronze_filepath, sep=";")
-        pg.send_df_to_db(
-            df,
+        pg.send_csv_to_db(
+            etl.cfg.bronze_filepath,
             table_name=f"{etl.cfg.db_table}_stg",
             filename=etl.cfg.bronze_filepath.name,
         )
