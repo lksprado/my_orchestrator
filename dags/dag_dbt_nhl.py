@@ -1,6 +1,6 @@
 import os
 
-from cosmos import DbtDag, LoadMode, ProfileConfig, ProjectConfig, RenderConfig
+from cosmos import DbtDag, ExecutionConfig, ProfileConfig, ProjectConfig, RenderConfig
 from cosmos.profiles import PostgresUserPasswordProfileMapping
 
 profile_config_dev = ProfileConfig(
@@ -18,11 +18,15 @@ my_cosmos_dag = DbtDag(
         project_name="my_datawarehouse",
     ),
     profile_config=profile_config_dev,
+    # Sem load_method explícito → Cosmos usa o cache do `dbt ls` (chave por hash
+    # do projeto), igual à dag_dbt_demodados. dbt_deps removido: as deps já estão
+    # vendoradas em dbt_packages/, não precisam ser reinstaladas a cada parse.
     render_config=RenderConfig(
-        load_method=LoadMode.DBT_LS,
         selector="nhl",
         dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt",
-        dbt_deps=True,
+    ),
+    execution_config=ExecutionConfig(
+        dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt",
     ),
     operator_args={
         "target": profile_config_dev.target_name,

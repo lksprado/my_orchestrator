@@ -1,34 +1,32 @@
-from airflow.decorators import dag, task
-from pendulum import datetime
-from airflow.sdk import Variable
-from airflow.providers.postgres.hooks.postgres import PostgresHook
-
 from pathlib import Path
+
+from airflow.decorators import dag, task
+from airflow.providers.postgres.hooks.postgres import PostgresHook
+from airflow.sdk import Variable
+from pendulum import datetime
+
+from include.Solar.src.extraction import (
+    Credentials,
+    PathsConfig,
+    SeleniumConfig,
+    run_pipeline,
+)
 
 # -----------------------------
 # Imports do projeto
 # -----------------------------
 from include.Solar.src.missing_raw import identify_missing_dates
-
-from include.Solar.src.extraction import (
-    SeleniumConfig,
-    Credentials,
-    PathsConfig,
-    run_pipeline,
-)
-
 from include.Solar.src.transforming import (
-    parsing_json_to_dataframe,
+    make_daily_summary_df,
     make_hourly_df,
-    make_daily_summary_df
+    parsing_json_to_dataframe,
 )
-
-from include.utils.s3_cons import upload_all_files_to_s3
 from include.utils.db_interactors import (
     execute_query,
+    move_files_after_loading,
     send_csv_df_to_db,
-    move_files_after_loading
 )
+from include.utils.s3_cons import upload_all_files_to_s3
 
 # -----------------------------
 # SQL
@@ -63,23 +61,23 @@ default_args = {
     "retries": 0,
 }
 
+
 @dag(
     dag_id="solar_etl",
     default_args=default_args,
     description="ETL for Solar Data",
     schedule="0 0 * * *",
     catchup=False,
-    tags=["atibaia"]
+    tags=["atibaia"],
 )
 def solar_etl():
 
     # -----------------------------
     # CONFIGURAÇÕES INJETADAS
     # -----------------------------
-    creds = Credentials(
-        username=Variable.get("apsystem_user"),
-        password=Variable.get("apsystem_pw"),
-    )
+    # NOTA: Variable.get() NÃO pode ficar no corpo da @dag — isso roda a cada
+    # parse do dag-processor e bate no metadata DB toda vez. As credenciais são
+    # buscadas dentro da task extraction_json_files (em runtime).
 
     selenium_config = SeleniumConfig(
         remote_url="http://host.docker.internal:4444/wd/hub",
@@ -89,9 +87,7 @@ def solar_etl():
     staging_folder = Path("/usr/local/airflow/mylake/staging/solar_project/")
     bronze_folder = Path("/usr/local/airflow/mylake/bronze/solar_project/")
 
-    paths = PathsConfig(
-        staging_dir=staging_folder
-    )
+    paths = PathsConfig(staging_dir=staging_folder)
 
     # -----------------------------
     # TASKS
@@ -103,6 +99,10 @@ def solar_etl():
 
     @task
     def extraction_json_files(list_of_dates: list):
+        creds = Credentials(
+            username=Variable.get("apsystem_user"),
+            password=Variable.get("apsystem_pw"),
+        )
         run_pipeline(
             selenium_config=selenium_config,
             creds=creds,
@@ -120,9 +120,7 @@ def solar_etl():
 
     @task
     def parse_json_to_df():
-        return parsing_json_to_dataframe(
-            staging_dir=str(staging_folder)
-        )
+        return parsing_json_to_dataframe(staging_dir=str(staging_folder))
 
     @task
     def make_hourly_csv(csv_file):
@@ -150,10 +148,7 @@ def solar_etl():
 
     @task
     def clear_staging_dir():
-        move_files_after_loading(
-            str(staging_folder),
-            str(bronze_folder)
-        )
+        move_files_after_loading(str(staging_folder), str(bronze_folder))
 
     @task
     def drop_staging_tables():
@@ -167,26 +162,19 @@ def solar_etl():
 
     extraction = extraction_json_files(missing_dates)
 
-    upload = upload_json_to_s3()
+    # upload = upload_json_to_s3()
     parsed_df = parse_json_to_df()
 
     hourly_df = make_hourly_csv(parsed_df)
     daily_df = make_daily_csv(parsed_df)
 
-    hourly_flow = (
-        load_hourly_to_staging(hourly_df)
-        >> merge_raw_table_hourly()
-    )
+    hourly_flow = load_hourly_to_staging(hourly_df) >> merge_raw_table_hourly()
 
-    daily_flow = (
-        load_daily_to_staging(daily_df)
-        >> merge_raw_table_daily()
-    )
+    daily_flow = load_daily_to_staging(daily_df) >> merge_raw_table_daily()
 
-    extraction >> upload
+    # extraction >> upload
     extraction >> parsed_df
 
-    upload >> [hourly_flow, daily_flow]
     [hourly_flow, daily_flow] >> clear_staging_dir() >> drop_staging_tables()
 
 

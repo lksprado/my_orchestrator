@@ -15,3 +15,4 @@ unidecode==1.4.0
 astronomer-cosmos==1.10.1
 selenium
 apache-airflow-providers-amazon
+gspread==6.2.1

@@ -6,8 +6,16 @@ astro dev start
 Dependências
 Pastas `./dbt` e `./include/local_setup` são submódulos. Após commit e push nos repos originais, para trazer códigos atualizados executar:
 ```shell
+# 1. Atualiza o repo principal
 git pull origin main
+
+# 2. Puxa o commit mais recente de cada submódulo (branch de tracking deles)
 git submodule update --remote
+
+# 3. Registra os novos ponteiros no repo principal
+git add <submódulos que mudaram>
+git commit -m "chore: bump submódulos para última versão"
+git push origin main
 ```
 
 # Troubleshooting

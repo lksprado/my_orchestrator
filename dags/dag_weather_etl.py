@@ -1,13 +1,18 @@
+from datetime import datetime, timedelta
+
 from airflow.decorators import dag, task
 from airflow.providers.http.sensors.http import HttpSensor
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.sdk import Variable
-from datetime import timedelta, datetime
 
-from include.openweather.src.missing_raw import identify_missing_dates
 from include.openweather.src.extraction import get_day_summary
+from include.openweather.src.missing_raw import identify_missing_dates
 from include.openweather.src.transforming import parsing_daily_weather
-from include.utils.db_interactors import execute_query, send_csv_df_to_db, move_files_after_loading
+from include.utils.db_interactors import (
+    execute_query,
+    move_files_after_loading,
+    send_csv_df_to_db,
+)
 from include.utils.s3_cons import upload_all_files_to_s3
 
 query_silver_upsert = """
@@ -83,11 +88,13 @@ default_args = {
     start_date=datetime(2025, 9, 21),
     schedule="0 1 * * *",
     catchup=False,
-    tags=["atibaia"]
+    tags=["atibaia"],
 )
 def weather_etl():
-    staging_folder = "/usr/local/airflow/mylake/staging/weather_project/"       # ajuste se existir
-    bronze_folder  = "/usr/local/airflow/mylake/bronze/weather_project/"
+    staging_folder = (
+        "/usr/local/airflow/mylake/staging/weather_project/"  # ajuste se existir
+    )
+    bronze_folder = "/usr/local/airflow/mylake/bronze/weather_project/"
 
     # Sensor ainda é necessário no estilo clássico
     check_api_availability = HttpSensor(
@@ -98,7 +105,9 @@ def weather_etl():
             "lat": -23.137,
             "lon": -46.5547861,
             "date": "{{ ds }}",
-            "appid":Variable.get("openweather_api"),
+            # Template Jinja resolve em runtime; Variable.get() aqui rodaria a
+            # cada parse (request_params é template_field do HttpSensor).
+            "appid": "{{ var.value.openweather_api }}",
         },
         response_check=lambda response: response.status_code == 200,
         poke_interval=5,
@@ -107,44 +116,42 @@ def weather_etl():
 
     @task.short_circuit
     def find_missing_dates():
-        conn_id = 'postgres_dw'    
+        conn_id = "postgres_dw"
         # Step 1: Obtem a data máxima de cada tabela - Caso haja discrepância entre cargas
         db_hook = PostgresHook(postgres_conn_id=conn_id)
         return identify_missing_dates(db=db_hook)
 
-    @task 
+    @task
     def upload_to_s3():
-        upload_all_files_to_s3(input_folder=staging_folder,
-                            bucket_name="openweatherbrz",
-                            prefix='control_file/',
-                            con_id="aws_solar_weather",
-                            sufix=".csv"
-                            )
-
+        upload_all_files_to_s3(
+            input_folder=staging_folder,
+            bucket_name="openweatherbrz",
+            prefix="control_file/",
+            con_id="aws_solar_weather",
+            sufix=".csv",
+        )
 
     @task
-    def make_requests_to_api(list_of_dates:list):
+    def make_requests_to_api(list_of_dates: list):
         return get_day_summary(
             output_path=staging_folder,
             dates_list=list_of_dates,
             token=Variable.get("openweather_api"),
         )
 
-
-
     @task
     def transform():
         return parsing_daily_weather(staging_dir=staging_folder)
-    
-    @task 
+
+    @task
     def load_staging(dataframe):
-        send_csv_df_to_db(dataframe,table_name="stg_openweather_daily",schema="raw")
-    
-    @task 
+        send_csv_df_to_db(dataframe, table_name="stg_openweather_daily", schema="raw")
+
+    @task
     def merge_silver_table():
         execute_query(query_silver_upsert)
 
-    @task 
+    @task
     def clear_staging():
         move_files_after_loading(staging_folder, bronze_folder)
 
@@ -154,16 +161,16 @@ def weather_etl():
 
     t0 = check_api_availability
     t1 = find_missing_dates()
-    t2 = upload_to_s3()
     t3 = make_requests_to_api(t1)
     t4 = transform()
     t5 = load_staging(t4)
     t6 = merge_silver_table()
     t7 = clear_staging()
     t8 = drop_staging()
-    
+
     t0 >> t1 >> t3 >> t4 >> t5 >> t6 >> t7 >> t8
-    t1 >> t2
+    t1
     # t0 >> t1 >> t2 >> t4 >> t5 >> t6 >> t7 >> t8
-    
+
+
 dag = weather_etl()

@@ -76,9 +76,10 @@ def nhl_seasons():
         render_config=RenderConfig(
             # Executa todos os modelos do projeto
             select=["*"],
+            dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt",
         ),
         operator_args={
-            "install_deps": True,
+            # install_deps removido: deps já vendoradas em dbt_packages/
             "full_refresh": False,  # True se quiser recriar tudo do zero
         },
         default_args={"retries": 1},

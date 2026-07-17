@@ -27,5 +27,6 @@
         "titleBar.inactiveBackground": "#2563eb99",
         "titleBar.inactiveForeground": "#e7e7e799"
     },
-    "peacock.color": "#2563eb"
+    "peacock.color": "#2563eb",
+    "dbt.perspectiveTheme": "Vintage"
 }
