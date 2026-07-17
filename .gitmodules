@@ -23,3 +23,6 @@
 [submodule "include/inflation"]
 	path = include/inflation
 	url = https://github.com/lksprado/webscraping-inflation.git
+[submodule "include/finance"]
+	path = include/finance
+	url = git@github.com-pessoal:lksprado/finance.git
