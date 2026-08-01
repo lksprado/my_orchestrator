@@ -1,0 +1,20 @@
+# Allowlist de promoção para produção (servidor atb)
+#
+# REGRA: o deploy sincroniza para o prod SOMENTE as DAGs listadas abaixo.
+# Uma DAG nova nasce local por padrão — ninguém precisa lembrar de excluí-la.
+#
+# Promover = adicionar uma linha, em commit próprio, para ficar visível
+# no histórico e ser fácil de reverter.
+#
+# Regras de segurança:
+#   - Nada com dado sensível entra aqui enquanto a estrutura nova não
+#     tiver ganhado confiança.
+#   - Segunda barreira, independente desta: as Connections dos pipelines
+#     sensíveis só existem no Airflow de dev. Mesmo que um arquivo chegasse
+#     ao prod por engano, ele não alcançaria a fonte de dados.
+#
+# Formato: um nome de arquivo por linha, relativo a dags/
+#   dag_nhl_master.py
+#
+# Estado atual: vazio de propósito. O prod roda apenas a DAG de teste que
+# já vive no repo de infraestrutura (test_seaweedfs_connection.py).
