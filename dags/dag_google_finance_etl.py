@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from airflow.decorators import dag, task
@@ -8,7 +9,10 @@ from pendulum import datetime
 # -----------------------------
 # Imports do projeto (submódulo include/finance)
 # -----------------------------
-from include.finance.src.google_finance_etl import run_google_finance_etl
+from include.finance.src.google_finance_etl import (
+    _load_sheets_config,
+    run_google_finance_etl,
+)
 from include.finance.src.utils.tools import load_csvs_to_raw
 
 # -----------------------------
@@ -45,12 +49,19 @@ def google_finance_etl():
     # -----------------------------
     @task
     def extract() -> str:
-        # Variable.get em runtime (não no corpo da @dag) para não bater no
+        # O ETL le a URL de cada planilha da env var URL_FINANCE_<CHAVE>, derivada
+        # das chaves do config.yml. Aqui a Variable homonima alimenta essa env var,
+        # entao adicionar uma planilha = 1 chave no config + 1 Variable no Airflow.
+        # Variable.get em runtime (nao no corpo da @dag) para nao bater no
         # metadata DB a cada parse do dag-processor.
+        for workbook in _load_sheets_config(CONFIG_PATH):
+            url = Variable.get(workbook["env"], default=None)
+            if url:
+                os.environ[workbook["env"]] = url
+
         run_google_finance_etl(
             output_dir=OUTPUT_DIR,
             credentials=str(CREDENTIALS),
-            sheet_url=Variable.get("google_finance_sheet_url"),
             config_path=CONFIG_PATH,
         )
         return str(OUTPUT_DIR)
