@@ -32,7 +32,9 @@ Tudo vem do `.env` da raiz (gitignored e dockerignored; o Astro injeta em todos 
 | `DB__PROD__*` | vazio | Postgres de produção |
 | `APSYSTEMS_*`, `OPENWEATHER_API_KEY`, `GOOGLE_CREDENTIALS_FILE`, `URL_FINANCE__*` | credenciais | só as dos pipelines promovidos |
 
-`ENV` escolhe o bloco `environments` dos YAMLs do `my_ingestion` e o perfil `DB__<ENV>__*`; dentro do container os dois blocos resolvem para os mesmos caminhos (`/usr/local/airflow/mylake`). A connection `postgres_dw` (Cosmos e `include/utils`) tem que apontar para o **mesmo banco** do perfil ativo.
+`ENV` escolhe o bloco `environments` dos YAMLs do `my_ingestion` e o perfil `DB__<ENV>__*`; dentro do container os dois blocos resolvem para os mesmos caminhos (`/usr/local/airflow/mylake`). A connection `postgres_dw` (Cosmos e `include/utils`) vem do mesmo `.env`, na variável `AIRFLOW_CONN_POSTGRES_DW`, e tem que apontar para o **mesmo banco** do perfil ativo. A variável tem precedência sobre a connection gravada no banco do Airflow.
+
+> Os bancos antigos `postgres` e `demodados` não existem mais no Postgres local (só `analytics_dev` e `metabase`). As DAGs legadas que dependiam deles já estão quebradas até migrarem.
 
 ### Padrão das DAGs migradas
 

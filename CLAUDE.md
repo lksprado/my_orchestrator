@@ -42,7 +42,7 @@ In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/the_
 
 ### Configuration (`.env`)
 
-Astro injects `.env` into every container (gitignored and dockerignored; template in `.env.example`). Keys: `ENV`, `LAKE_ROOT=/usr/local/airflow/mylake`, `SEEDS_ROOT=/usr/local/airflow/dbt/the_dw/seeds`, `DB__DEV__*` / `DB__PROD__*` (pydantic-settings nested delimiter `__`), pipeline credentials (`APSYSTEMS_*`, `OPENWEATHER_API_KEY`, `GOOGLE_CREDENTIALS_FILE`, `URL_FINANCE__*`). `settings.py` validates the active profile on import and, in dev, requires `DB__DEV__NAME=analytics_dev`. The Airflow connection `postgres_dw` must point to the same database as the active profile (Cosmos and `include/utils` use the connection; `GenericETL` loads use `settings.db_target`).
+Astro injects `.env` into every container (gitignored and dockerignored; template in `.env.example`). Keys: `ENV`, `LAKE_ROOT=/usr/local/airflow/mylake`, `SEEDS_ROOT=/usr/local/airflow/dbt/the_dw/seeds`, `DB__DEV__*` / `DB__PROD__*` (pydantic-settings nested delimiter `__`), pipeline credentials (`APSYSTEMS_*`, `OPENWEATHER_API_KEY`, `GOOGLE_CREDENTIALS_FILE`, `URL_FINANCE__*`). `settings.py` validates the active profile on import and, in dev, requires `DB__DEV__NAME=analytics_dev`. The Airflow connection `postgres_dw` is defined in the same `.env` as `AIRFLOW_CONN_POSTGRES_DW` and must point to the same database as the active profile (Cosmos and `include/utils` use the connection; `GenericETL` loads use `settings.db_target`). The env var wins over the entry in the metastore and in `airflow_settings.yaml`.
 
 ### DAG Pattern (migrated DAGs)
 
@@ -67,8 +67,8 @@ def extract():
 
 ### Airflow Connections (local)
 
-- `postgres_dw` → Postgres at `host.docker.internal:5435`, database `analytics_dev` (Cosmos + `include/utils`)
-- `demodadosdw` → legacy database `demodados`, only for not-yet-migrated legislative DAGs
+- `postgres_dw` → from `AIRFLOW_CONN_POSTGRES_DW` in `.env`: `host.docker.internal:5435`, database `analytics_dev` (Cosmos + `include/utils`)
+- `demodadosdw` → legacy database `demodados`, **which no longer exists** (only `analytics_dev` and `metabase` remain on 5435). Legacy DAGs that depended on the old `postgres`/`demodados` databases are already broken.
 - `openweather_conn` → HTTP to `api.openweathermap.org`
 
 ### Prod (`atb`)
