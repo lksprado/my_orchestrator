@@ -26,7 +26,7 @@ Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, databas
 
 - `dags/` — one file per pipeline (`@dag`/`@task` style)
 - `include/my_ingestion/` — mount point, gitignored (not a submodule); `src/` is on `PYTHONPATH` (Dockerfile), so DAGs import `core`, `pipelines`, `settings` **without package prefix** (`from core import build_etl`). The package is not pip-installed; only its deps are (see `requirements.txt`).
-- `include/utils/` — Airflow-side helpers kept here: `db_interactors.py` (loads via connection `postgres_dw`, upserts, `move_files_after_loading`), `logger_cfg.py`
+- `include/utils/` — Airflow-side code: `etl_dag.py` (DAG factory), `db_interactors.py` (loads via connection `postgres_dw`, upserts, `move_files_after_loading`), `logger_cfg.py`
 - No git submodules remain. The legacy `include/` submodules were removed on 2026-09-14; their code lives in `my_ingestion`. DAGs that imported them are kept as reference but listed in `dags/.airflowignore` until migrated.
 - `dbt/the_dw/` — mount point, gitignored (not a submodule); single dbt project for all domains (schemas derived from model path by `generate_schema_name`). Run by Cosmos (`DbtDag`) with the `dbt_venv` executable.
 - `deploy/prod-dags.txt` — allowlist of DAGs promoted to prod
@@ -41,24 +41,39 @@ In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/the_
 
 ### Configuration (`.env`)
 
-Astro injects `.env` into every container (gitignored and dockerignored; template in `.env.example`). Keys: `ENV`, `LAKE_ROOT=/usr/local/airflow/mylake`, `SEEDS_ROOT=/usr/local/airflow/dbt/the_dw/seeds`, `DB__DEV__*` / `DB__PROD__*` (pydantic-settings nested delimiter `__`), pipeline credentials (`APSYSTEMS_*`, `OPENWEATHER_API_KEY`, `GOOGLE_CREDENTIALS_FILE`, `URL_FINANCE__*`). `settings.py` validates the active profile on import and, in dev, requires `DB__DEV__NAME=analytics_dev`. The Airflow connection `postgres_dw` is defined in the same `.env` as `AIRFLOW_CONN_POSTGRES_DW` and must point to the same database as the active profile (Cosmos and `include/utils` use the connection; `GenericETL` loads use `settings.db_target`). The env var wins over the entry in the metastore and in `airflow_settings.yaml`.
+Astro injects `.env` into every container (gitignored and dockerignored; template in `.env.example`). Keys: `ENV`, `LAKE_ROOT=/usr/local/airflow/mylake`, `SEEDS_ROOT=/usr/local/airflow/dbt/the_dw/seeds`, `DB__DEV__*` / `DB__PROD__*` (pydantic-settings nested delimiter `__`), pipeline credentials (`APSYSTEMS_*`, `OPENWEATHER_API_KEY`, `GOOGLE_CREDENTIALS_FILE`, `URL_FINANCE__*`) and `SELENIUM_REMOTE_URL`. `settings.py` validates the active profile on import and, in dev, requires `DB__DEV__NAME=analytics_dev`. The Airflow connection `postgres_dw` is defined in the same `.env` as `AIRFLOW_CONN_POSTGRES_DW` and must point to the same database as the active profile (Cosmos and `include/utils` use the connection; `GenericETL` loads use `settings.db_target`). The env var wins over the entry in the metastore and in `airflow_settings.yaml`.
 
-### DAG Pattern (migrated DAGs)
+### DAG Pattern (one DAG per my_ingestion source)
 
 ```python
-from core import build_etl
+"""<Fonte>: <o que coleta>.
+
+DAG do Airflow montada por include/utils/etl_dag.py.
+"""
+
+from include.utils.etl_dag import etl_group, source_dag
 from pipelines.<dominio>.<fonte>.<fonte>_etl import CONFIG_FILE, ETLS
 
-@task
-def extract():
-    build_etl(CONFIG_FILE, "<entidade>", ETLS["<entidade>"]).extract()
+with source_dag("<fonte>", schedule="30 2 * * 1", tags=["<dominio>"]) as dag:
+    votacoes = etl_group(CONFIG_FILE, ETLS, "votacoes")
+    votacoes >> etl_group(CONFIG_FILE, ETLS, "votos_deputados")
 ```
 
-- Build the ETL **inside** tasks, never in the `@dag` body (`PipelineConfig` creates directories; keep parse cheap).
-- One `@task` per step (`extract` / `transform` / `load`); `load: none` sources (solar, weather) are loaded by `include/utils` + upsert SQL in the DAG.
+- `include/utils/etl_dag.py`: `source_dag` sets the defaults (retries 2, no catchup, `max_active_runs=1`) and the `steps` param; `etl_group` builds a `TaskGroup` per entity with only the steps it has (`extract` if the `Etl` has one or the source has `base_url`; `transform` if the `Etl` has one; `load` unless `load: none`) plus `check_bronze` before `load` in `table`/`files` modes (both `replace`, an empty bronze would wipe the raw).
+- The ETL is built **inside** each task (`build_etl` creates directories); only the YAML is read at parse.
+- Manual trigger with `steps=["transform","load"]` reprocesses the landing without hitting the source; all tasks use `none_failed` so a skipped step does not skip the rest.
+- **Every DAG file must contain the words "airflow" and "dag"**: DagBag safe mode silently skips files without them. Factory-only files mention Airflow in the docstring. `tests/dags/test_etl_dag.py` fails if a non-ignored file yields no DAG.
+- Exceptions without raw load (atacadao, atacadao_historico, investimentos_fgc) call the my_ingestion function in a plain `@task`; `fundos_imobiliarios` runs `python -m ...run` via `BashOperator` because its logic lives in `__main__`. `load: none` sources (solar, weather) load in the DAG with `include/utils/db_interactors.py` + upsert SQL.
 - Credentials from `settings` (env), not `Variable.get`. No `setup_logger()` (Airflow configures the root logger).
-- `default_args={"retries": 2}` and at least one tag (enforced by `tests/dags/test_dag_example.py`).
-- Migrated so far: `dag_dbt_the_dw`, `dag_camara_votacoes`, `dag_weather_etl`, `dag_nhl_games_summary`, `dag_smoke_my_ingestion`. The pilots stay `schedule=None` until validated (`airflow dags test`, compared against the migrated copies in `analytics_dev`); results in README "Validação dos pilotos". A DAG listed in `.airflowignore` needs `--dagfile-path`. Legacy DAGs (in `.airflowignore`) have no code to run; migrate one source at a time, remove its line from `.airflowignore`, following the source README in `include/my_ingestion/src/pipelines/<dominio>/<fonte>/README.md`.
+- New DAGs start with `schedule=None  # em validação...; original "<cron>"` and get the schedule only after passing validation (`airflow dags test <dag_id> --dagfile-path ...`, compared against the migrated copies in `analytics_dev`); results in README "Validação das DAGs".
+- Table names are **not aligned** with the_dw yet (decision 2026-09-14): DAGs write `raw_<fonte>.<entidade>` as my_ingestion defines, while the_dw still reads the migrated copies (`raw_senado.raw_senado_votacoes`, `raw_apsystem`, `raw_vide_editora`, `raw_google_sheets`...). Only weather, NHL, `raw_b3` and `raw_avenue` match.
+
+### Runtime requirements
+
+- `packages.txt`: `poppler-utils` (Avenue PDFs via `pdftotext`).
+- `SELENIUM_REMOTE_URL` in `.env` (solar, fundos imobiliários): the image has no Chrome; dev uses the `selenium_container` at `http://host.docker.internal:4444/wd/hub`. Needs my_ingestion commit `9a68a75` (branch `feat/selenium-remoto`).
+- `raw_solar.solar_daily_energy` / `solar_hourly_energy` must exist with PKs on `date` / `datetime` (upsert `ON CONFLICT`); created on 2026-09-14 as copies of `raw_apsystem`.
+- `senado_status` copies the e-Cidadania `paginas` bronze into the Senado `parameter_dir` before running (link not declared in the YAMLs).
 
 ### Key Dependencies & Pinning
 
@@ -76,6 +91,8 @@ Not automated yet. When promoting a DAG (`deploy/prod-dags.txt`), the homelab Ai
 
 ### Known cross-repo mismatches (not fixable here)
 
-- the_dw source schemas vs my_ingestion `db_schema`: `raw_apsystem`≠`raw_solar`, `raw_vide_editora`≠`raw_vide_editorial`, `raw_google_sheets`≠`raw_google`.
+- Table names (decision 2026-09-14: left unaligned): the_dw reads the migrated copies (`raw_<fonte>.raw_<fonte>_<entidade>`, `raw_apsystem`, `raw_vide_editora.vide_raw_*`, `raw_google_sheets`, `raw_atacadao.atacadao_raw`), my_ingestion writes `raw_<fonte>.<entidade>`, `raw_solar`, `raw_vide_editorial`, `raw_google`. Matching on both sides: `raw_openweather`, `raw_nhl`, `raw_b3`, `raw_avenue`.
+- `investimentos_fgc` SQL reads `intermediate.int_renda_fixa`; the_dw builds `intermediate_financas.int_renda_fixa` (DAG fails).
+- `atacadao_historico` writes `minha_inflacao.csv` with columns `Mês passado, Var`; the_dw seed `seed_minha_inflacao.csv` has `Categoria, Mes`.
 - NHL `param_schema: staging` in `nhl_config.yml`, but the_dw builds `vw_stg_request_*` in `staging_nhl`.
 - Data from the old databases (`demodados`, `postgres`) does not migrate by itself to `analytics_dev` (upsert tables such as `openweather_daily` must be copied first).

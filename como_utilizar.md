@@ -23,6 +23,26 @@ não pode ser lido dentro do container. A configuração vem apenas do `.env` da
 Mudou dependência no `my_ingestion`? Espelhe em `requirements.txt` (bloco "deps do
 include/my_ingestion") e rode `astro dev restart` para rebuildar.
 
+## DAGs no dia a dia
+
+- **DAG nova nasce pausada** no Airflow local: despause na UI para o agendamento valer.
+- **Reprocessar sem consultar a fonte:** dispare a DAG com a configuração abaixo. O extract é pulado e o transform relê todo o landing.
+  ```json
+  {"steps": ["transform", "load"]}
+  ```
+  Para Solar e weather, que movem os JSONs para o bronze depois da carga, devolva os arquivos ao staging antes.
+- **DAGs manuais** e o que precisam antes:
+  - `camara_cadastro`, `senado_cadastro`: nada; rode quando mudar a legislatura.
+  - `investimentos_arquivos`: copie os Excel da B3 e os PDFs da Avenue para `raw/investments/b3|avenue/<pessoa>/`.
+  - `investimentos_fgc`: `raw/investments/instituicoes/instituicoes_conglomerado_prudencial.csv` no lake e a camada intermediate do the_dw construída. Hoje falha: o SQL lê `intermediate.int_renda_fixa`, e o the_dw gera `intermediate_financas`.
+  - `atacadao_historico`: CSVs mensais em `bronze/inflation/months/`. Grava `minha_inflacao.csv` nos seeds do the_dw, com colunas diferentes do seed atual.
+  - `fundos_imobiliarios`: params `month` (YYYY-MM, vazio = mês corrente), `force` e `consolidate_only`. Usa o Selenium remoto e leva uns 40 minutos.
+- **Validar uma DAG** sem esperar o scheduler (a DAG precisa estar em arquivo; a do NHL, ignorada, também funciona assim):
+  ```shell
+  docker exec $(docker ps -qf name=scheduler) bash -c \
+    'cd /usr/local/airflow && airflow dags test <dag_id> --dagfile-path /usr/local/airflow/dags/<arquivo>.py'
+  ```
+
 ## Prod: versões fixadas
 
 Prod executa exatamente os commits de `deploy/versions.txt`. Para promover uma versão nova,
