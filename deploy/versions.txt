@@ -14,5 +14,5 @@
 # /usr/local/airflow/dbt/the_dw).
 #
 # Formato: nome sha url
-my_ingestion dd22225142b3690df153dcdc5ff30f2d83bde110 https://github.com/lksprado/my_ingestion.git
-the_dw 94f1b44d21b40dd5a6f93084801e6b1578855971 https://github.com/lksprado/my_datawarehouse.git
+my_ingestion b3c79f3e4270d8ca6e60fca97f108a93f581c722 https://github.com/lksprado/my_ingestion.git
+the_dw b7f8248f9ecf19b0cfbdfc1b3fa7ba76ed5bfb7b https://github.com/lksprado/my_datawarehouse.git
