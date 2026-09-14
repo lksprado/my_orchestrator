@@ -1,3 +1,8 @@
+"""Exporta as tabelas de apresentação do domínio demodados para CSV em gold/.
+
+Lê do the_dw (schema presentation_demodados) pela connection postgres_dw.
+"""
+
 import os
 from datetime import datetime
 
@@ -5,21 +10,22 @@ import pandas as pd
 from airflow.decorators import dag, task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
+SCHEMA = "presentation_demodados"
+GOLD_DIR = "/usr/local/airflow/mylake/gold/"
+
 
 @dag(
     dag_id="extract_postgres_demodados",
     start_date=datetime(2026, 6, 17),
     schedule="30 4 * * *",
     catchup=False,
+    default_args={"owner": "airflow", "retries": 2},
     tags=["demodados"],
 )
 def extract_pipeline():
-    SCHEMA = "presentation"
-    GOLD_DIR = "/usr/local/airflow/mylake/gold/"
-
     @task
     def get_tables() -> list[str]:
-        hook = PostgresHook(postgres_conn_id="demodadosdw")
+        hook = PostgresHook(postgres_conn_id="postgres_dw")
         rows = hook.get_records(
             """
             SELECT table_name
@@ -33,10 +39,8 @@ def extract_pipeline():
         return [row[0] for row in rows]
 
     @task
-    def export_table(table: str):
-        hook = PostgresHook(postgres_conn_id="demodadosdw")
-        engine = hook.get_sqlalchemy_engine()
-
+    def export_table(table: str) -> str:
+        engine = PostgresHook(postgres_conn_id="postgres_dw").get_sqlalchemy_engine()
         df = pd.read_sql(f"SELECT * FROM {SCHEMA}.{table}", con=engine)
         filepath = os.path.join(GOLD_DIR, f"{table}.csv")
         df.to_csv(filepath, sep=";", index=False)
