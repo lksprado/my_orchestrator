@@ -13,7 +13,6 @@ O código de ingestão vive no monorepo [`my_ingestion`](https://github.com/lksp
 | `dags/` | DAG files — um por pipeline |
 | `include/my_ingestion/` | Ponto de montagem do monorepo de ingestão, fora do git (`src/` entra no `PYTHONPATH`: `core`, `pipelines`, `settings`) |
 | `include/utils/` | Helpers do lado Airflow (`db_interactors.py`) — carga via connection `postgres_dw` |
-| `include/{local_setup,Solar,openweather,nhl_extraction,vide,inflation,finance}/` | Submódulos antigos, **em extinção**: só as DAGs ainda não migradas dependem deles |
 | `dbt/the_dw/` | Ponto de montagem do projeto dbt único (todos os domínios, inclusive demodados), fora do git |
 | `deploy/prod-dags.txt` | Allowlist de DAGs promovidas ao `atb` |
 | `deploy/versions.txt` | Commit exato do `my_ingestion` e do `the_dw` que prod executa (`deploy/checkout_versions.sh` aplica) |
@@ -34,7 +33,7 @@ Tudo vem do `.env` da raiz (gitignored e dockerignored; o Astro injeta em todos 
 
 `ENV` escolhe o bloco `environments` dos YAMLs do `my_ingestion` e o perfil `DB__<ENV>__*`; dentro do container os dois blocos resolvem para os mesmos caminhos (`/usr/local/airflow/mylake`). A connection `postgres_dw` (Cosmos e `include/utils`) vem do mesmo `.env`, na variável `AIRFLOW_CONN_POSTGRES_DW`, e tem que apontar para o **mesmo banco** do perfil ativo. A variável tem precedência sobre a connection gravada no banco do Airflow.
 
-> Os bancos antigos `postgres` e `demodados` não existem mais no Postgres local (só `analytics_dev` e `metabase`). As DAGs legadas que dependiam deles já estão quebradas até migrarem.
+> Os bancos antigos `postgres` e `demodados` não existem mais no Postgres local (só `analytics_dev` e `metabase`). Os submódulos legados de `include/` foram removidos em 2026-09-14; as DAGs que os importavam ficam em `dags/.airflowignore` como referência até migrarem. O repo não tem mais nenhum submódulo.
 
 ### Padrão das DAGs migradas
 
@@ -64,9 +63,11 @@ As DAGs migradas para o `my_ingestion` ficam com `schedule=None` até rodarem e 
 | `weather_etl` | 2026-09-13 | 1794 linhas, até 2026-08-14 | 1824 linhas, até 2026-09-13; 30 dias novos sem buraco e sem nulos; checksum das 1794 linhas antigas idêntico; staging limpo e JSONs em `bronze/weather_project` | ✅ passou |
 | `nhl_games_summary` | 2026-09-13 | 74289 jogos | 75698 jogos (inclui 2026-27); nenhum id anterior ausente; mesmo formato de payload; controle registrado com overwrite | ✅ passou |
 | `camara_votacoes_pipeline` | 2026-09-13 | cópias migradas: votações 189607, votos por deputado 1896426, orientações 100105 | votações 190431 (até 2026-09-03), votos por deputado 1899613, orientações 100230; nenhum voto nem orientação do legado ausente; `aprovacao`, `tipovoto` e `orientacaovoto` iguais em todas as chaves comuns; uma votação do legado (`2265737-40`) sumiu porque a Câmara a renumerou para `2265737-46` (mesma data e órgão, id antigo dá 404) | ✅ passou |
-| `dag_dbt_the_dw` | 2026-09-13 | — | 238 de 244 tasks com sucesso (Cosmos, `postgres_dw` via `.env` e volume do `the_dw` funcionando); `staging_openweather.stg_weather_daily` com as datas novas do weather (1824 linhas, até 2026-09-13). Falhas no conteúdo do `the_dw` (working tree em `b09bd1b` com alterações locais): `stg_proventos` converte `"75.0"` para inteiro; teste `not_null_fct_products_sku` procura coluna `sku` que não existe; teste `not_null_fct_games_is_regulation_loss` achou 3 nulos. Não rodaram por dependência: `int_dividendos`, `dividendos`, `inflation` | ❌ não passou (conteúdo do the_dw) |
+| `dag_dbt_the_dw` | 2026-09-13 | — | 238 de 244 tasks com sucesso (Cosmos, `postgres_dw` via `.env` e volume do `the_dw` funcionando); `staging_openweather.stg_weather_daily` com as datas novas do weather (1824 linhas, até 2026-09-13). Três erros no `the_dw`, reproduzidos em 2026-09-14 no código atual (`94f1b44`) direto no banco, fora do Airflow: `stg_proventos` faz `quantidade::INT` e a `raw_b3.proventos` recarregada como texto em 2026-09-13 tem `"75.0"`; o teste `not_null_fct_products_sku` procura `sku`, mas a view `marts_inflation.fct_products` só tem `created_date, product_sk, high_price, low_price`; o teste `not_null_fct_games_is_regulation_loss` acha 3 nulos. Não rodaram por dependência: `int_dividendos`, `dividendos`, `inflation` | ❌ não passou (conteúdo do the_dw) |
 
 A câmara leva cerca de 12 minutos (rebuild do bronze de votos). Os 404 em `votos_orientacao` são esperados: essa entidade não guarda as votações sem orientação e tenta de novo a cada execução. O dbt ainda lê as cópias `raw_camara.raw_camara_*`, não estas tabelas novas.
+
+Contagem do dbt: o `the_dw` tem 459 nós (162 models, 223 testes, 58 sources, 16 seeds) e o Cosmos gera 244 tasks, sem perder nada. Cada model vira uma task de run (162); os 66 models com testes ganham uma task `.test` que roda todos os testes dele; as 16 seeds viram tasks; sources não viram task.
 
 Como nem todos passaram, os schedules continuam `None` (os originais estão anotados em cada DAG).
 
@@ -79,6 +80,8 @@ docker exec $(docker ps -qf name=scheduler) bash -c 'cd /usr/local/airflow && py
 `nhl_games_summary` está no `.airflowignore` (fora de temporada); para testar use `--dagfile-path /usr/local/airflow/dags/dag_nhl_games_summary.py`.
 
 ## DAGs
+
+As tabelas abaixo descrevem o catálogo completo. Só rodam hoje as DAGs migradas (ver "Validação dos pilotos"), as de exportação e o smoke test; as demais estão em `dags/.airflowignore` aguardando migração.
 
 ### Dados Políticos
 

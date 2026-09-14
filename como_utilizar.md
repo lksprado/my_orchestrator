@@ -2,7 +2,6 @@
 
 Primeira vez (ou máquina nova):
 ```shell
-git submodule update --init --recursive   # só os submódulos legados de include/
 git clone https://github.com/lksprado/my_ingestion.git ~/workspace/my_ingestion
 git clone https://github.com/lksprado/my_datawarehouse.git ~/workspace/the_dw
 cp .env.example .env        # preencher credenciais; dev exige DB__DEV__NAME=analytics_dev
@@ -35,10 +34,9 @@ git commit -m "chore(deploy): promove my_ingestion para <sha curto>" deploy/vers
 ```
 No servidor, `deploy/checkout_versions.sh <destino>` coloca os repos nesses commits.
 
-## Submódulos legados
+## Sem submódulos
 
-Os submódulos de `include/` (`local_setup`, `Solar`, `openweather`, `nhl_extraction`, `vide`,
-`inflation`, `finance`) estão em extinção e saem conforme cada DAG migra para o `my_ingestion`.
+O repo não tem mais submódulos. Os antigos de `include/` foram removidos em 2026-09-14 e o código deles vive no `my_ingestion`. As DAGs legadas estão em `dags/.airflowignore` até serem migradas.
 
 # Troubleshooting
 Problema:

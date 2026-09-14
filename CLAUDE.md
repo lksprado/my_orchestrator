@@ -11,7 +11,6 @@ Two environments, selected by environment variables only: `dev` = this machine (
 ## Common Commands
 
 ```bash
-git submodule update --init --recursive   # after fresh clone (legacy include/ submodules only)
 cp .env.example .env                       # required: settings fails on import without LAKE_ROOT/SEEDS_ROOT/DB__DEV__*
 astro dev start                            # UI http://localhost:8090 (metadata db on 5436)
 astro dev restart                          # rebuild after changing requirements.txt / Dockerfile
@@ -28,7 +27,7 @@ Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, databas
 - `dags/` — one file per pipeline (`@dag`/`@task` style)
 - `include/my_ingestion/` — mount point, gitignored (not a submodule); `src/` is on `PYTHONPATH` (Dockerfile), so DAGs import `core`, `pipelines`, `settings` **without package prefix** (`from core import build_etl`). The package is not pip-installed; only its deps are (see `requirements.txt`).
 - `include/utils/` — Airflow-side helpers kept here: `db_interactors.py` (loads via connection `postgres_dw`, upserts, `move_files_after_loading`), `logger_cfg.py`
-- `include/{local_setup,Solar,openweather,nhl_extraction,vide,inflation,finance}/` — **legacy submodules, being phased out**. Only DAGs not yet migrated import them. Do not add new code there.
+- No git submodules remain. The legacy `include/` submodules were removed on 2026-09-14; their code lives in `my_ingestion`. DAGs that imported them are kept as reference but listed in `dags/.airflowignore` until migrated.
 - `dbt/the_dw/` — mount point, gitignored (not a submodule); single dbt project for all domains (schemas derived from model path by `generate_schema_name`). Run by Cosmos (`DbtDag`) with the `dbt_venv` executable.
 - `deploy/prod-dags.txt` — allowlist of DAGs promoted to prod
 - `deploy/versions.txt` + `deploy/checkout_versions.sh` — exact `my_ingestion`/`the_dw` commits prod runs; promoting = bumping a SHA in its own commit
@@ -59,7 +58,7 @@ def extract():
 - One `@task` per step (`extract` / `transform` / `load`); `load: none` sources (solar, weather) are loaded by `include/utils` + upsert SQL in the DAG.
 - Credentials from `settings` (env), not `Variable.get`. No `setup_logger()` (Airflow configures the root logger).
 - `default_args={"retries": 2}` and at least one tag (enforced by `tests/dags/test_dag_example.py`).
-- Migrated so far: `dag_dbt_the_dw`, `dag_camara_votacoes`, `dag_weather_etl`, `dag_nhl_games_summary`, `dag_smoke_my_ingestion`. The pilots stay `schedule=None` until validated (`airflow dags test`, compared against the migrated copies in `analytics_dev`); results in README "Validação dos pilotos". A DAG listed in `.airflowignore` needs `--dagfile-path`. Everything else still uses the legacy submodules and the old `raw` schema; migrate one source at a time following the source README in `include/my_ingestion/src/pipelines/<dominio>/<fonte>/README.md`.
+- Migrated so far: `dag_dbt_the_dw`, `dag_camara_votacoes`, `dag_weather_etl`, `dag_nhl_games_summary`, `dag_smoke_my_ingestion`. The pilots stay `schedule=None` until validated (`airflow dags test`, compared against the migrated copies in `analytics_dev`); results in README "Validação dos pilotos". A DAG listed in `.airflowignore` needs `--dagfile-path`. Legacy DAGs (in `.airflowignore`) have no code to run; migrate one source at a time, remove its line from `.airflowignore`, following the source README in `include/my_ingestion/src/pipelines/<dominio>/<fonte>/README.md`.
 
 ### Key Dependencies & Pinning
 
