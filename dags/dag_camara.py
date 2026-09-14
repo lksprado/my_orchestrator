@@ -2,10 +2,13 @@
 
 votacoes gera id_votacoes.csv e id_proposicao.csv, que parametrizam as quatro
 entidades seguintes. Cadastro (legislaturas e deputados) fica em camara_cadastro.
+
+DAG do Airflow montada por include/utils/etl_dag.py.
 """
 
-from include.utils.etl_dag import etl_group, source_dag
 from pipelines.legislativo.camara.camara_etl import CONFIG_FILE, ETLS
+
+from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "camara",

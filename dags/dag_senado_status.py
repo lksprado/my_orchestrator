@@ -9,9 +9,10 @@ import shutil
 
 from airflow.sdk import task
 from core import PipelineConfig
-from include.utils.etl_dag import etl_group, source_dag
 from pipelines.legislativo.ecidadania.ecidadania_etl import CONFIG_FILE as ECIDADANIA_CONFIG
 from pipelines.legislativo.senado.senado_etl import CONFIG_FILE, ETLS
+
+from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "senado_status",

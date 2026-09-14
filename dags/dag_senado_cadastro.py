@@ -1,7 +1,11 @@
-"""Senado: cadastro de senadores e legislaturas (manual)."""
+"""Senado: cadastro de senadores e legislaturas (manual).
+
+DAG do Airflow montada por include/utils/etl_dag.py.
+"""
+
+from pipelines.legislativo.senado.senado_etl import CONFIG_FILE, ETLS
 
 from include.utils.etl_dag import etl_group, source_dag
-from pipelines.legislativo.senado.senado_etl import CONFIG_FILE, ETLS
 
 with source_dag(
     "senado_cadastro",

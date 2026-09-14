@@ -5,8 +5,9 @@ não carrega em banco (o dbt consome via seed; ver atacadao_historico).
 """
 
 from airflow.sdk import task
-from include.utils.etl_dag import source_dag
 from pipelines.precos.atacadao.run import _PRODUCTS_CONFIG, _STORE_CONFIG, search_products
+
+from include.utils.etl_dag import source_dag
 
 with source_dag(
     "atacadao",

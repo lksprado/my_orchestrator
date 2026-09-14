@@ -1,10 +1,13 @@
 """Investimentos: abas das planilhas do Google Sheets (diário).
 
 Service account em GOOGLE_CREDENTIALS_FILE e URLs em URL_FINANCE__<CHAVE> (.env).
+
+DAG do Airflow montada por include/utils/etl_dag.py.
 """
 
-from include.utils.etl_dag import etl_group, source_dag
 from pipelines.financas.investimentos.investimentos_etl import CONFIG_FILE, ETLS
+
+from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "investimentos_google",

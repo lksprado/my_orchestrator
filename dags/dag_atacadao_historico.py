@@ -5,8 +5,9 @@ SEEDS_ROOT (em dev, o working tree do the_dw).
 """
 
 from airflow.sdk import task
-from include.utils.etl_dag import source_dag
 from pipelines.precos.atacadao.historic import make_file
+
+from include.utils.etl_dag import source_dag
 
 with source_dag(
     "atacadao_historico",

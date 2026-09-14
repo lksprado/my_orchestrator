@@ -3,10 +3,13 @@
 votacoes grava o landing que votos_senadores lê e o id_processo.csv que
 parametriza processo. votos_orientacao é independente. Cadastro fica em
 senado_cadastro e status em senado_status.
+
+DAG do Airflow montada por include/utils/etl_dag.py.
 """
 
-from include.utils.etl_dag import etl_group, source_dag
 from pipelines.legislativo.senado.senado_etl import CONFIG_FILE, ETLS
+
+from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "senado",

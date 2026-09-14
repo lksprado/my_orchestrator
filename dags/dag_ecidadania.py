@@ -1,7 +1,11 @@
-"""e-Cidadania: números gerais e matérias mais votadas (diário)."""
+"""e-Cidadania: números gerais e matérias mais votadas (diário).
+
+DAG do Airflow montada por include/utils/etl_dag.py.
+"""
+
+from pipelines.legislativo.ecidadania.ecidadania_etl import CONFIG_FILE, ETLS
 
 from include.utils.etl_dag import etl_group, source_dag
-from pipelines.legislativo.ecidadania.ecidadania_etl import CONFIG_FILE, ETLS
 
 with source_dag(
     "ecidadania",

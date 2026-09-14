@@ -26,6 +26,10 @@ puladas; por exemplo ``["transform", "load"]`` reprocessa o landing sem bater na
 fonte. Todas as tasks usam ``none_failed`` para que etapa pulada não pule o
 resto da DAG.
 
+Todo arquivo de DAG precisa conter as palavras "airflow" e "dag": o modo seguro
+do DagBag pula em silêncio o que não tiver. Quem só importa esta factory deve
+citar "Airflow" na docstring.
+
 O ETL é montado dentro de cada task (``build_etl`` instancia ``PipelineConfig``,
 que cria diretórios); no parse só o YAML é lido.
 """

@@ -7,9 +7,10 @@ intermediate já materializada.
 
 from airflow.sdk import task
 from core import PipelineConfig
-from include.utils.etl_dag import source_dag
 from pipelines.financas.investimentos.investimentos_etl import CONFIG_FILE
 from pipelines.financas.investimentos.investimentos_fgc import build_depara
+
+from include.utils.etl_dag import source_dag
 
 with source_dag(
     "investimentos_fgc",

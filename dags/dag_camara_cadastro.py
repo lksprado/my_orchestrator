@@ -4,9 +4,10 @@ Atualiza id_deputados.csv a partir da API antes de extrair os perfis.
 """
 
 from airflow.sdk import task
-from include.utils.etl_dag import etl_group, source_dag
 from pipelines.legislativo._params.atualizar_deputados import obter_ids_deputados_atuais
 from pipelines.legislativo.camara.camara_etl import CONFIG_FILE, ETLS
+
+from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "camara_cadastro",

@@ -2,10 +2,13 @@
 
 Os Excel da B3 e os PDFs da Avenue são colocados à mão no landing
 (raw/investments/b3|avenue/<pessoa>/); dispare depois de copiar os arquivos.
+
+DAG do Airflow montada por include/utils/etl_dag.py.
 """
 
-from include.utils.etl_dag import etl_group, source_dag
 from pipelines.financas.investimentos.investimentos_etl import CONFIG_FILE, ETLS
+
+from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "investimentos_arquivos",

@@ -1,10 +1,13 @@
 """e-Cidadania: todas as páginas de consultas públicas (mensal).
 
 O bronze gerado alimenta a DAG senado_status.
+
+DAG do Airflow montada por include/utils/etl_dag.py.
 """
 
-from include.utils.etl_dag import etl_group, source_dag
 from pipelines.legislativo.ecidadania.ecidadania_etl import CONFIG_FILE, ETLS
+
+from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "ecidadania_paginas",

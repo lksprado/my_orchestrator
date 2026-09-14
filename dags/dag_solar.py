@@ -8,9 +8,10 @@ para bronze/solar_project -> drop da staging.
 
 from airflow.sdk import task
 from core import PipelineConfig
+from pipelines.energia.solar.solar_etl import CONFIG_FILE, ETLS
+
 from include.utils.db_interactors import execute_query, move_files_after_loading, send_csv_df_to_db
 from include.utils.etl_dag import etl_group, source_dag
-from pipelines.energia.solar.solar_etl import CONFIG_FILE, ETLS
 
 SCHEMA = "raw_solar"
 

@@ -6,6 +6,7 @@ módulo pela linha de comando, no mesmo ambiente. Selenium via SELENIUM_REMOTE_U
 
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import Param
+
 from include.utils.etl_dag import source_dag
 
 COMMAND = (

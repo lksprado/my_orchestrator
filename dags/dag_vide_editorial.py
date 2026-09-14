@@ -1,7 +1,11 @@
-"""Vide Editorial: livros em destaque na home (diário)."""
+"""Vide Editorial: livros em destaque na home (diário).
+
+DAG do Airflow montada por include/utils/etl_dag.py.
+"""
+
+from pipelines.livros.vide_editorial.vide_editorial_etl import CONFIG_FILE, ETLS
 
 from include.utils.etl_dag import etl_group, source_dag
-from pipelines.livros.vide_editorial.vide_editorial_etl import CONFIG_FILE, ETLS
 
 with source_dag(
     "vide_editorial",
