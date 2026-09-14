@@ -10,24 +10,3 @@ dag_nhl_master.py
 dag_nhl_players.py
 dag_nhl_seasons.py
 dag_nhl_teams.py
-# Legado sem código: importavam os submódulos de include/ removidos em 2026-09-14
-# (o código vive no my_ingestion). Ficam aqui como referência até cada fonte ser
-# migrada para o padrão build_etl; ao migrar, reescreva a DAG e tire a linha.
-dag_deputados.py
-dag_ecidadania_bignumbers.py
-dag_ecidadania_maisvotados.py
-dag_ecidadania_paginas.py
-dag_ecidadania_status.py
-dag_google_finance_etl.py
-dag_inflation.py
-dag_ranking_deputados.py
-dag_ranking_senadores.py
-dag_senadores.py
-dag_senado_votacoes.py
-dag_senado_votos_orientacao.py
-dag_senado_votos_senadores.py
-dag_solar_etl.py
-dag_solar_full_etl.py
-dag_vide_home.py
-dag_vide_pages.py
-dag_weather_full.py

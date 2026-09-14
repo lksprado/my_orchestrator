@@ -51,8 +51,12 @@ def source_dag(
     description: str | None = None,
     **kwargs,
 ) -> DAG:
-    """DAG com os defaults do projeto e o parâmetro ``steps``."""
+    """DAG com os defaults do projeto e o parâmetro ``steps``.
+
+    ``params`` extras (ex.: ``month`` de uma DAG manual) somam-se ao ``steps``.
+    """
     default_args = {"owner": "airflow", "retries": 2, **kwargs.pop("default_args", {})}
+    extra_params = kwargs.pop("params", {})
     return DAG(
         dag_id=dag_id,
         schedule=schedule,
@@ -68,7 +72,8 @@ def source_dag(
                 type="array",
                 items={"type": "string", "enum": list(ALL_STEPS)},
                 description="Etapas do ETL a executar; as demais são puladas.",
-            )
+            ),
+            **extra_params,
         },
         **kwargs,
     )

@@ -1,0 +1,15 @@
+"""Vide Editorial: páginas das categorias (semanal, só extração).
+
+O my_ingestion não carrega esta entidade (load: none); os JSONs ficam no lake.
+"""
+
+from include.utils.etl_dag import etl_group, source_dag
+from pipelines.livros.vide_editorial.vide_editorial_etl import CONFIG_FILE, ETLS
+
+with source_dag(
+    "vide_editorial_categorias",
+    schedule=None,  # em validação, ver README (Validação das DAGs); original "0 7 * * 5"
+    tags=["livros"],
+    description="Vide Editorial: páginas de categorias",
+) as dag:
+    etl_group(CONFIG_FILE, ETLS, "categorias")

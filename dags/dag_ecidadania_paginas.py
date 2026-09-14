@@ -1,100 +1,15 @@
-import logging
-from datetime import datetime
-from pathlib import Path
+"""e-Cidadania: todas as páginas de consultas públicas (mensal).
 
-from airflow.decorators import dag, task
-from airflow.providers.postgres.hooks.postgres import PostgresHook
-from pendulum import datetime, duration
+O bronze gerado alimenta a DAG senado_status.
+"""
 
-from include.local_setup.src.pipelines.legislativo.ecidadania.ecidadania_paginas import (
-    extract as extraction_paginas,
-    transform as transform_paginas,
-)
-from include.local_setup.src.utils.loaders.postgres import PostgreSQLManager
-from include.local_setup.src.utils.pipeline_cfg import GenericETL, PipelineConfig, load_source_config
+from include.utils.etl_dag import etl_group, source_dag
+from pipelines.legislativo.ecidadania.ecidadania_etl import CONFIG_FILE, ETLS
 
-_CONFIG_FILE = (
-    Path(__file__).parent.parent
-    / "include" / "local_setup" / "src" / "pipelines" / "legislativo"
-    / "ecidadania" / "ecidadania_config.yml"
-)
-
-logger = logging.getLogger("DAG: Ecidadania Paginas")
-
-
-@dag(
-    dag_id="ecidadania_paginas_pipeline",
-    start_date=datetime(2025, 12, 20),
-    schedule="30 6 20 * *",
-    catchup=False,
-    default_args={
-        "retries": 5,
-        "retry_delay": duration(seconds=5),
-        "retry_exponential_backoff": True,
-        "max_retry_delay": duration(hours=1),
-    },
+with source_dag(
+    "ecidadania_paginas",
+    schedule=None,  # em validação, ver README (Validação das DAGs); original "30 6 20 * *"
     tags=["demodados"],
-)
-def paginas_pipeline():
-    cfg = PipelineConfig(**load_source_config(_CONFIG_FILE, source="paginas", env="airflow"))
-    target = cfg.db_table
-
-    hook = PostgresHook(postgres_conn_id="demodadosdw")
-    engine = hook.get_sqlalchemy_engine()
-    pg = PostgreSQLManager(engine=engine)
-
-    etl = GenericETL(cfg=cfg, extract_fn=extraction_paginas, load_fn=None, log=logger)
-
-    @task
-    def t_extract():
-        etl.extract()
-
-    @task
-    def t_transform():
-        transform_paginas(cfg)
-
-    @task
-    def t_create_schema():
-        pg.execute_query("CREATE SCHEMA IF NOT EXISTS raw")
-
-    @task
-    def t_load_staging():
-        import pandas as pd
-
-        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg")
-        df = pd.read_csv(etl.cfg.bronze_filepath, sep=";")
-        pg.send_df_to_db(df, table_name=f"{etl.cfg.db_table}_stg", filename=etl.cfg.bronze_filepath.name)
-
-    @task
-    def t_check_staging_count():
-        result = pg.fetchone(f"SELECT COUNT(*) FROM raw.{etl.cfg.db_table}_stg")
-        if not result or result[0] == 0:
-            raise ValueError("Staging está vazia, abortando promoção para raw")
-        logger.info(f"Staging tem {result[0]} linhas")
-
-    @task
-    def t_insert():
-        pg.execute_query(f"""
-            CREATE TABLE IF NOT EXISTS raw.{target}
-            AS SELECT * FROM raw.{etl.cfg.db_table}_stg LIMIT 0;
-            TRUNCATE TABLE raw.{target};
-            INSERT INTO raw.{target}
-            SELECT * FROM raw.{etl.cfg.db_table}_stg;
-        """)
-
-    @task
-    def t_drop_stg_if_exists():
-        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg;")
-
-    extract = t_extract()
-    transform = t_transform()
-    create_raw = t_create_schema()
-    load_staging = t_load_staging()
-    check_staging = t_check_staging_count()
-    insert_into_target = t_insert()
-    drop_staging = t_drop_stg_if_exists()
-
-    extract >> transform >> create_raw >> load_staging >> check_staging >> insert_into_target >> drop_staging
-
-
-dag = paginas_pipeline()
+    description="e-Cidadania: páginas de consultas públicas",
+) as dag:
+    etl_group(CONFIG_FILE, ETLS, "paginas")
