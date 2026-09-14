@@ -9,7 +9,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "vide_editorial",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "30 6 * * *"
+    schedule="30 6 * * *",
     tags=["livros"],
     description="Vide Editorial: livros em destaque",
 ) as dag:
