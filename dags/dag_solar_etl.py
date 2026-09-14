@@ -26,7 +26,6 @@ from include.utils.db_interactors import (
     move_files_after_loading,
     send_csv_df_to_db,
 )
-from include.utils.s3_cons import upload_all_files_to_s3
 
 # -----------------------------
 # SQL
@@ -111,14 +110,6 @@ def solar_etl():
         )
 
     @task
-    def upload_json_to_s3():
-        upload_all_files_to_s3(
-            input_folder=str(staging_folder),
-            bucket_name="solar-weather",
-            con_id="aws_solar_weather",
-        )
-
-    @task
     def parse_json_to_df():
         return parsing_json_to_dataframe(staging_dir=str(staging_folder))
 
@@ -162,7 +153,6 @@ def solar_etl():
 
     extraction = extraction_json_files(missing_dates)
 
-    # upload = upload_json_to_s3()
     parsed_df = parse_json_to_df()
 
     hourly_df = make_hourly_csv(parsed_df)
@@ -172,7 +162,6 @@ def solar_etl():
 
     daily_flow = load_daily_to_staging(daily_df) >> merge_raw_table_daily()
 
-    # extraction >> upload
     extraction >> parsed_df
 
     [hourly_flow, daily_flow] >> clear_staging_dir() >> drop_staging_tables()

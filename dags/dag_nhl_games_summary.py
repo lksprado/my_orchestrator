@@ -1,62 +1,45 @@
+"""NHL games_summary: 1 request -> JSON no landing -> raw_nhl.nhl_raw_all_games_summary (JSONB).
+
+Piloto do padrão my_ingestion com load: jsonb (JsonbLoader, overwrite: true,
+controle em raw_nhl.nhl_ingestion_control). É a base de IDs dos pipelines
+dinâmicos: o dag_nhl_master roda o dbt depois deste.
+"""
+
+from datetime import datetime
+
 from airflow.decorators import dag, task
-from pendulum import datetime
-from airflow.providers.postgres.hooks.postgres import PostgresHook
+
+from core import build_etl
+from pipelines.esportes.nhl.nhl_etl import CONFIG_FILE, ETLS
+
+ENTIDADE = "games_summary"
+
+default_args = {"owner": "airflow", "depends_on_past": False, "retries": 2}
 
 
-# -----------------------------
-# Imports do projeto
-# -----------------------------
-from include.nhl_extraction.endpoints import get_all_games_summary_endpoint
-from include.nhl_extraction.src.extraction.extraction import Extractor
-from include.nhl_extraction.src.loading.loader import Loader
+def _etl():
+    return build_etl(CONFIG_FILE, ENTIDADE, ETLS[ENTIDADE])
 
-# -----------------------------
-# DAG CONFIG
-# -----------------------------
-default_args = {
-    "owner": "airflow",
-    "depends_on_past": False,
-    "start_date": datetime(2026, 1, 4),
-    "retries": 0,
-}
 
 @dag(
     dag_id="nhl_games_summary",
     default_args=default_args,
-    description="ETL for NHL Data with dbt",
-    schedule=None,
+    description="NHL: resumo de todos os jogos (base dos IDs)",
+    schedule=None,  # disparada pelo nhl_master_pipeline
+    start_date=datetime(2026, 9, 13),
     catchup=False,
-    tags=["nhl"]
+    tags=["nhl"],
 )
 def nhl_games_summary():
-    config = get_all_games_summary_endpoint()
-    url = config.url
-    filename = config.filename
-    out_dir = config.output_dir
-    
-    db_hook = PostgresHook(postgres_conn_id="postgres_dw")
-    
     @task
-    def extraction():
-        """Extrai dados da API e salva em JSON"""
-        extractor = Extractor()
-        data_extracted = extractor.make_request(url)
-        extractor.save_json(data=data_extracted, output_dir=out_dir, filename=filename)
-    
-    @task
-    def loading():
-        """Carrega dados JSON na camada raw do banco"""
-        loader = Loader(connection_provider=lambda: db_hook.get_conn())
-        loader.load(config)
-        return "Dados carregados na raw"
+    def extract():
+        _etl().extract()
 
-    
-    # -----------------------------
-    # FLUXO
-    # -----------------------------
-    extract = extraction()
-    load = loading()
-  
-    extract >> load
-# Instancia a DAG
+    @task
+    def load():
+        _etl().load()
+
+    extract() >> load()
+
+
 dag = nhl_games_summary()

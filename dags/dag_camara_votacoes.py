@@ -1,127 +1,61 @@
-import logging
+"""Câmara: votações -> votos por deputado e orientação de bancada.
+
+Piloto do padrão my_ingestion (load: table). Cada entidade roda
+extract -> transform -> load com o GenericETL; a carga é full refresh em
+raw_camara.<entidade> no banco do ambiente (settings.db_target), então não há
+mais tabela _stg nem checagem de contagem aqui. votacoes gera os CSVs de IDs
+(id_votacoes.csv) que os dois seguintes consomem.
+"""
+
 from datetime import datetime
-from pathlib import Path
 
-import pandas as pd
 from airflow.decorators import dag, task
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.providers.postgres.hooks.postgres import PostgresHook
 
-from include.local_setup.src.pipelines.legislativo.camara.camara_votacoes import (
-    extract,
-    transform,
-)
-from include.local_setup.src.utils.loaders.postgres import PostgreSQLManager
-from include.local_setup.src.utils.pipeline_cfg import (
-    GenericETL,
-    PipelineConfig,
-    load_source_config,
-)
+from core import build_etl
+from pipelines.legislativo.camara.camara_etl import CONFIG_FILE, ETLS
 
-_CONFIG_FILE = (
-    Path(__file__).parent.parent
-    / "include"
-    / "local_setup"
-    / "src"
-    / "pipelines"
-    / "legislativo"
-    / "camara"
-    / "camara_config.yml"
-)
+default_args = {"owner": "airflow", "retries": 2}
 
-logger = logging.getLogger("DAG: camara_votacoes")
+
+def _etl(entidade: str):
+    # build_etl instancia PipelineConfig (cria diretórios): só dentro de task.
+    return build_etl(CONFIG_FILE, entidade, ETLS[entidade])
 
 
 @dag(
     dag_id="camara_votacoes_pipeline",
-    start_date=datetime(2026, 6, 19),
+    start_date=datetime(2026, 9, 13),
     schedule="30 2 * * 1",
     catchup=False,
+    default_args=default_args,
     tags=["demodados"],
+    max_active_tasks=1,
 )
-def votacoes_pipeline():
-    cfg = PipelineConfig(
-        **load_source_config(_CONFIG_FILE, source="votacoes", env="airflow")
-    )
-    target = cfg.db_table
-
-    hook = PostgresHook(postgres_conn_id="demodadosdw")
-    engine = hook.get_sqlalchemy_engine()
-    pg = PostgreSQLManager(engine=engine)
-
-    etl = GenericETL(cfg=cfg, extract_fn=extract, load_fn=None, log=logger)
+def camara_votacoes_pipeline():
+    @task
+    def extract(entidade: str):
+        _etl(entidade).extract()
 
     @task
-    def t_extract():
-        etl.extract()
+    def transform(entidade: str):
+        _etl(entidade).transform()
 
     @task
-    def t_transform():
-        transform(cfg)
+    def load(entidade: str):
+        _etl(entidade).load()
 
-    @task
-    def t_create_schema():
-        pg.execute_query("CREATE SCHEMA IF NOT EXISTS raw")
+    def chain(entidade: str):
+        e = extract.override(task_id=f"{entidade}_extract")(entidade)
+        t = transform.override(task_id=f"{entidade}_transform")(entidade)
+        ld = load.override(task_id=f"{entidade}_load")(entidade)
+        e >> t >> ld
+        return e, ld
 
-    @task
-    def t_load_staging():
-        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg")
-        df = pd.read_csv(etl.cfg.bronze_filepath, sep=";")
-        pg.send_df_to_db(
-            df, table_name=f"{etl.cfg.db_table}_stg", filename=etl.cfg.bronze_filepath.name
-        )
+    _, votacoes_load = chain("votacoes")
+    votos_dep_extract, _ = chain("votos_deputados")
+    votos_ori_extract, _ = chain("votos_orientacao")
 
-    @task
-    def t_check_staging_count():
-        result = pg.fetchone(f"SELECT COUNT(*) FROM raw.{etl.cfg.db_table}_stg")
-        if not result or result[0] == 0:
-            raise ValueError("Staging está vazia, abortando promoção para raw")
-        logger.info(f"Staging tem {result[0]} linhas")
-
-    @task
-    def t_insert():
-        pg.execute_query(f"""
-            CREATE TABLE IF NOT EXISTS raw.{target}
-            AS SELECT * FROM raw.{etl.cfg.db_table}_stg LIMIT 0;
-            TRUNCATE TABLE raw.{target};
-            INSERT INTO raw.{target}
-            SELECT * FROM raw.{etl.cfg.db_table}_stg;
-        """)
-
-    @task
-    def t_drop_stg_if_exists():
-        pg.execute_query(f"DROP TABLE IF EXISTS raw.{etl.cfg.db_table}_stg;")
-
-    trigger_votos_deputados = TriggerDagRunOperator(
-        task_id="trigger_votos_deputados",
-        trigger_dag_id="camara_votos_deputados_pipeline",
-        wait_for_completion=False,
-    )
-
-    trigger_votos_orientacao = TriggerDagRunOperator(
-        task_id="trigger_votos_orientacao",
-        trigger_dag_id="camara_votos_orientacao_pipeline",
-        wait_for_completion=False,
-    )
-
-    extract_task = t_extract()
-    transform_task = t_transform()
-    create_raw = t_create_schema()
-    load_staging = t_load_staging()
-    check_staging = t_check_staging_count()
-    insert_into_target = t_insert()
-    drop_staging = t_drop_stg_if_exists()
-
-    (
-        extract_task
-        >> transform_task
-        >> create_raw
-        >> load_staging
-        >> check_staging
-        >> insert_into_target
-        >> drop_staging
-        >> [trigger_votos_deputados, trigger_votos_orientacao]
-    )
+    votacoes_load >> [votos_dep_extract, votos_ori_extract]
 
 
-dag = votacoes_pipeline()
+dag = camara_votacoes_pipeline()

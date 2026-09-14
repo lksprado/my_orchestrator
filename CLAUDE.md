@@ -4,93 +4,78 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Apache Airflow orchestration project built on the Astronomer runtime (3.0-10 / Airflow 2.10.x). Manages 34+ pipelines across multiple domains: Brazilian political data (Câmara, Senado, e-Cidadania), NHL stats, solar energy, OpenWeather, book scraping (Vide Editorial), and inflation tracking (Atacadão). Data follows a medallion architecture: raw files → staging tables → DBT bronze/silver/gold layers.
+Apache Airflow orchestration project (repo `my_orchestrator`) on Astro Runtime 3.0-10 (Airflow 3.0.6, Python 3.12). It only orchestrates: ingestion code lives in the `my_ingestion` monorepo (`include/my_ingestion`, submodule) and transformation in the `the_dw` dbt project (`dbt/the_dw`, submodule, remote `my_datawarehouse`). Data follows a medallion architecture: landing/bronze files in the lake → `raw_<fonte>.*` tables → dbt staging/intermediate/marts. Code, comments and docs are in Portuguese.
+
+Two environments, selected by environment variables only: `dev` = this machine (CLI of my_ingestion and this local Airflow, database `analytics_dev`) and `prod` = the `atb` server (`homelab/stacks/airflow`). Same DAG code in both; only the `.env` changes.
 
 ## Common Commands
 
 ```bash
-# Start/stop local Airflow
-astro dev start
-astro dev stop
-
-# Run DAG tests
-pytest tests/dags/
-
-# Update all git submodules to latest
-git submodule update --remote
-
-# After fresh clone
-git submodule update --init --recursive
+git submodule update --init --recursive   # after fresh clone
+cp .env.example .env                       # required: settings fails on import without LAKE_ROOT/SEEDS_ROOT/DB__DEV__*
+astro dev start                            # UI http://localhost:8090 (metadata db on 5436)
+astro dev restart                          # rebuild after changing requirements.txt / Dockerfile
+astro dev pytest tests/dags/               # import errors, tags, retries >= 2
+git submodule update --remote include/my_ingestion dbt/the_dw   # bump pointers (only matters for build/prod)
 ```
 
-**Airflow UI:** http://localhost:8080 | **API server:** http://localhost:8090
+Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, database and the_dw mount.
 
 ## Architecture
 
 ### Repository Structure
 
-- `dags/` — Airflow DAG files (one file per pipeline)
-- `include/` — Shared Python modules; each subdomain is a git submodule
-  - `utils/` — Core shared utilities (`db_interactors.py`, `s3_cons.py`, `logger_cfg.py`)
-  - `local_setup/` — `PipelineConfig`, `GenericETL`, `PostgreSQLManager`, YAML pipeline configs
-  - `nhl_extraction/`, `Solar/`, `openweather/`, `inflation/`, `vide/` — domain ETL packages
-- `dbt/` — Two DBT projects (both git submodules)
-  - `my_datawarehouse/` — NHL, solar, inflation, books (selectors: `nhl`, `energia`, `inflation`, `livros`)
-  - `demodadosdw/` — Brazilian political data (three-layer medallion, surrogate key `sk_parlamentar`)
-- `tests/dags/` — DAG import validation and connection tests
-- `airflow_settings.yaml` — Local dev connections and variables (not for prod)
-- `docker-compose.override.yml` — Mounts local DBT projects and the datalake directory
+- `dags/` — one file per pipeline (`@dag`/`@task` style)
+- `include/my_ingestion/` — submodule; `src/` is on `PYTHONPATH` (Dockerfile), so DAGs import `core`, `pipelines`, `settings` **without package prefix** (`from core import build_etl`). The package is not pip-installed; only its deps are (see `requirements.txt`).
+- `include/utils/` — Airflow-side helpers kept here: `db_interactors.py` (loads via connection `postgres_dw`, upserts, `move_files_after_loading`), `logger_cfg.py`
+- `include/{local_setup,Solar,openweather,nhl_extraction,vide,inflation,finance}/` — **legacy submodules, being phased out**. Only DAGs not yet migrated import them. Do not add new code there.
+- `dbt/the_dw/` — submodule; single dbt project for all domains (schemas derived from model path by `generate_schema_name`). Run by Cosmos (`DbtDag`) with the `dbt_venv` executable.
+- `deploy/prod-dags.txt` — allowlist of DAGs promoted to prod
+- `tests/dags/` — DagBag validation
+- `airflow_settings.yaml` — local connections/variables (not for prod)
+- `docker-compose.override.yml` — dev only: bind mounts of `~/workspace/my_ingestion/src`, `~/workspace/the_dw`, the lake and `~/.secrets`
 
-### Git Submodules
+### Dev bind mounts
 
-All `include/` domain packages and both `dbt/` projects are git submodules with their own repos. Changes to those packages must be committed in their respective repos, then the pointer updated here.
+In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/the_dw` are mounted over the submodules, so edits there are live in Airflow. Only `src/` of my_ingestion is mounted on purpose: its own `.env` (localhost, `/media/...`) must not be read inside the container; configuration comes exclusively from this repo's `.env`.
 
-### DAG Pattern
+### Configuration (`.env`)
 
-All DAGs use the `@dag` / `@task` decorator style:
+Astro injects `.env` into every container (gitignored and dockerignored; template in `.env.example`). Keys: `ENV`, `LAKE_ROOT=/usr/local/airflow/mylake`, `SEEDS_ROOT=/usr/local/airflow/dbt/the_dw/seeds`, `DB__DEV__*` / `DB__PROD__*` (pydantic-settings nested delimiter `__`), pipeline credentials (`APSYSTEMS_*`, `OPENWEATHER_API_KEY`, `GOOGLE_CREDENTIALS_FILE`, `URL_FINANCE__*`). `settings.py` validates the active profile on import and, in dev, requires `DB__DEV__NAME=analytics_dev`. The Airflow connection `postgres_dw` must point to the same database as the active profile (Cosmos and `include/utils` use the connection; `GenericETL` loads use `settings.db_target`).
+
+### DAG Pattern (migrated DAGs)
 
 ```python
-@dag(dag_id="...", schedule="...", tags=["domain"], default_args={"retries": 2, ...})
-def my_pipeline():
-    @task
-    def extract(): ...
-    @task
-    def load(): ...
-    extract() >> load()
+from core import build_etl
+from pipelines.<dominio>.<fonte>.<fonte>_etl import CONFIG_FILE, ETLS
 
-dag = my_pipeline()
+@task
+def extract():
+    build_etl(CONFIG_FILE, "<entidade>", ETLS["<entidade>"]).extract()
 ```
 
-Every DAG must have at least one tag and `retries >= 2` (enforced by `tests/dags/test_dag_example.py`).
-
-### ETL Data Flow
-
-1. Extract from API/scraper → write CSV to `/usr/local/airflow/mylake/<domain>/staging/`
-2. Load CSV to PostgreSQL staging table via `send_csv_df_to_db()` in `include/utils/db_interactors.py`
-3. Move files staging → bronze via `move_files_after_loading()`
-4. DBT transforms bronze → silver → gold (triggered by `TriggerDagRunOperator` or `DbtDag` via Cosmos)
-
-Loads use INSERT … ON CONFLICT for idempotency. Solar and weather data are also backed up to S3.
-
-### DBT / Cosmos
-
-DBT runs use `astronomer-cosmos` (`DbtDag`). The two DBT projects share the same Postgres database but different schemas. The `dbt_env` Airflow variable controls target (`dev` by default).
+- Build the ETL **inside** tasks, never in the `@dag` body (`PipelineConfig` creates directories; keep parse cheap).
+- One `@task` per step (`extract` / `transform` / `load`); `load: none` sources (solar, weather) are loaded by `include/utils` + upsert SQL in the DAG.
+- Credentials from `settings` (env), not `Variable.get`. No `setup_logger()` (Airflow configures the root logger).
+- `default_args={"retries": 2}` and at least one tag (enforced by `tests/dags/test_dag_example.py`).
+- Migrated so far: `dag_dbt_the_dw`, `dag_camara_votacoes`, `dag_weather_etl`, `dag_nhl_games_summary`, `dag_smoke_my_ingestion`. Everything else still uses the legacy submodules and the old `raw` schema; migrate one source at a time following the source README in `include/my_ingestion/src/pipelines/<dominio>/<fonte>/README.md`.
 
 ### Key Dependencies & Pinning
 
-`pandas==2.1.4` is pinned for compatibility with `sqlalchemy==1.4.54`. Using a newer pandas version causes "Engine has no attribute 'cursor'" errors. Do not bump either without testing the full ETL chain.
+`pandas==2.1.4` stays pinned: Airflow 3.0.6 uses SQLAlchemy 1.4 and pandas ≥ 2.2 requires SQLAlchemy 2 ("Engine has no attribute 'cursor'"). `my_ingestion` itself runs pandas 3.x in its own venv; the in-process choice here is validated by the smoke DAG. Deps of my_ingestion are mirrored in `requirements.txt` (block "deps do include/my_ingestion") with the versions from its `uv.lock`.
 
 ### Airflow Connections (local)
 
-Defined in `airflow_settings.yaml`:
-- `postgres_dw` → Postgres at `host.docker.internal:5435`, schema `postgres`
-- `demodadosdw` → Postgres at `host.docker.internal:5435`, schema `demodados`
+- `postgres_dw` → Postgres at `host.docker.internal:5435`, database `analytics_dev` (Cosmos + `include/utils`)
+- `demodadosdw` → legacy database `demodados`, only for not-yet-migrated legislative DAGs
 - `openweather_conn` → HTTP to `api.openweathermap.org`
-- `aws_solar_weather` → AWS S3
 
-### Airflow Variables
+### Prod (`atb`)
 
-- `lake_base_dir`: `/usr/local/airflow/mylake` — root datalake path used by all ETL tasks
-- `dbt_env`: `dev` — DBT target
-- `apsystem_user` / `apsystem_pw`: Solar system credentials
-- `openweather_api`: OpenWeather API token
+Not automated yet. When promoting a DAG (`deploy/prod-dags.txt`), the homelab Airflow needs: `.env` with `ENV=prod` + `DB__PROD__*` + secrets; the same `PYTHONPATH`; `include/my_ingestion` and `dbt/the_dw` at the submodule pointers; lake at `/usr/local/airflow/mylake`; an image with Python 3.12 (Runtime 3.3-2 defaults to 3.14, my_ingestion pins `<3.13`).
+
+### Known cross-repo mismatches (not fixable here)
+
+- the_dw source schemas vs my_ingestion `db_schema`: `raw_apsystem`≠`raw_solar`, `raw_vide_editora`≠`raw_vide_editorial`, `raw_google_sheets`≠`raw_google`.
+- NHL `param_schema: staging` in `nhl_config.yml`, but the_dw builds `vw_stg_request_*` in `staging_nhl`.
+- Data from the old databases (`demodados`, `postgres`) does not migrate by itself to `analytics_dev` (upsert tables such as `openweather_daily` must be copied first).

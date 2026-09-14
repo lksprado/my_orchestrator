@@ -1,21 +1,27 @@
 name: airflow
+# Só para dev. Monta o working tree de ~/workspace por cima dos submódulos
+# include/my_ingestion e dbt/the_dw, então editar lá reflete no Airflow sem
+# rebuild nem bump de ponteiro. As variáveis (ENV, LAKE_ROOT, DB__*...) vêm do
+# .env da raiz, que o Astro injeta em todos os containers. PYTHONPATH está no
+# Dockerfile (mesmo valor em prod).
+x-dev-volumes: &dev-volumes
+  # só src/: o .env do my_ingestion (localhost, /media/...) não pode ser lido
+  # como dotenv dentro do container — a config vem exclusivamente do ambiente.
+  - /home/lucas/workspace/my_ingestion/src:/usr/local/airflow/include/my_ingestion/src
+  - /home/lucas/workspace/the_dw:/usr/local/airflow/dbt/the_dw
+  - /media/lucas/Files/2.Projetos/0.mylake:/usr/local/airflow/mylake
+  # service account do Google (GOOGLE_CREDENTIALS_FILE aponta para cá)
+  - /home/lucas/.secrets:/usr/local/airflow/.secrets:ro
+
 services:
   scheduler:
     user: root
     environment:
-      PYTHONPATH: /usr/local/airflow
       AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT: "120"
-    volumes:
-      - ./dbt/demodadosdw/:/usr/local/airflow/dbt/demodadosdw
-      - ./dbt/my_datawarehouse:/usr/local/airflow/dbt/my_datawarehouse
-      - /media/lucas/Files/2.Projetos/0.mylake:/usr/local/airflow/mylake
+    volumes: *dev-volumes
 
   dag-processor:
     user: root
     environment:
-      PYTHONPATH: /usr/local/airflow
       AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT: "120"
-    volumes:
-      - ./dbt/demodadosdw/:/usr/local/airflow/dbt/demodadosdw
-      - ./dbt/my_datawarehouse:/usr/local/airflow/dbt/my_datawarehouse
-      - /media/lucas/Files/2.Projetos/0.mylake:/usr/local/airflow/mylake
+    volumes: *dev-volumes

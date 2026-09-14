@@ -1,6 +1,3 @@
-[submodule "dbt/demodadosdw"]
-	path = dbt/demodadosdw
-	url = https://github.com/lksprado/demodadosdw
 [submodule "include/local_setup"]
 	path = include/local_setup
 	url = https://github.com/lksprado/demodados.git
@@ -11,8 +8,8 @@
 [submodule "include/openweather"]
 	path = include/openweather
 	url = https://github.com/lksprado/openweather
-[submodule "dbt/my_datawarehouse"]
-	path = dbt/my_datawarehouse
+[submodule "dbt/the_dw"]
+	path = dbt/the_dw
 	url = git@github.com-pessoal:lksprado/my_datawarehouse.git
 [submodule "include/nhl_extraction"]
 	path = include/nhl_extraction
@@ -26,3 +23,6 @@
 [submodule "include/finance"]
 	path = include/finance
 	url = git@github.com-pessoal:lksprado/finance.git
+[submodule "include/my_ingestion"]
+	path = include/my_ingestion
+	url = git@github.com-pessoal:lksprado/my_ingestion.git
