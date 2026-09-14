@@ -40,7 +40,7 @@ def _cfg(entidade: str) -> PipelineConfig:
 
 with source_dag(
     "solar",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "0 0 * * *"
+    schedule="0 0 * * *",
     tags=["atibaia"],
     description="Energia solar: geração diária e horária",
 ) as dag:
