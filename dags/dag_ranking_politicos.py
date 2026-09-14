@@ -9,7 +9,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "ranking_politicos",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "0 7 * * 1"
+    schedule="0 7 * * 1",
     tags=["demodados"],
     description="Ranking dos Políticos: deputados e senadores",
 ) as dag:
