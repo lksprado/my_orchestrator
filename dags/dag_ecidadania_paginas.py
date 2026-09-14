@@ -11,7 +11,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "ecidadania_paginas",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "30 6 20 * *"
+    schedule="30 6 20 * *",
     tags=["demodados"],
     description="e-Cidadania: páginas de consultas públicas",
 ) as dag:
