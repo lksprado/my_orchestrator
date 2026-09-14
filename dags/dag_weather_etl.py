@@ -80,7 +80,7 @@ def _etl():
     default_args=default_args,
     description="ETL for Weather Data",
     start_date=datetime(2025, 9, 21),
-    schedule="0 1 * * *",
+    schedule=None,  # em validação, ver README (seção Validação dos pilotos); original "0 1 * * *"
     catchup=False,
     tags=["atibaia"],
 )

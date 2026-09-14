@@ -25,7 +25,7 @@ def _etl(entidade: str):
 @dag(
     dag_id="camara_votacoes_pipeline",
     start_date=datetime(2026, 9, 13),
-    schedule="30 2 * * 1",
+    schedule=None,  # em validação, ver README (seção Validação dos pilotos); original "30 2 * * 1"
     catchup=False,
     default_args=default_args,
     tags=["demodados"],
@@ -41,14 +41,27 @@ def camara_votacoes_pipeline():
         _etl(entidade).transform()
 
     @task
+    def check_bronze(entidade: str):
+        # O load faz replace em raw_camara.<entidade>: bronze vazio zeraria a
+        # tabela. Mesma proteção da checagem de staging da DAG antiga.
+        path = _etl(entidade).cfg.bronze_filepath
+        if not path.is_file():
+            raise FileNotFoundError(f"Bronze ausente, abortando carga: {path}")
+        with open(path, encoding="utf-8") as f:
+            linhas = sum(1 for _ in f) - 1  # desconta o cabeçalho
+        if linhas <= 0:
+            raise ValueError(f"Bronze vazio, abortando carga: {path}")
+
+    @task
     def load(entidade: str):
         _etl(entidade).load()
 
     def chain(entidade: str):
         e = extract.override(task_id=f"{entidade}_extract")(entidade)
         t = transform.override(task_id=f"{entidade}_transform")(entidade)
+        c = check_bronze.override(task_id=f"{entidade}_check_bronze")(entidade)
         ld = load.override(task_id=f"{entidade}_load")(entidade)
-        e >> t >> ld
+        e >> t >> c >> ld
         return e, ld
 
     _, votacoes_load = chain("votacoes")

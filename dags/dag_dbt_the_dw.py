@@ -37,7 +37,7 @@ dag_dbt_the_dw = DbtDag(
         "target": profile_config.target_name,
         "threads": 1,
     },
-    schedule="30 9 * * *",
+    schedule=None,  # em validação, ver README (seção Validação dos pilotos); original "30 9 * * *"
     start_date=datetime(2026, 9, 13),
     catchup=False,
     dag_id="dag_dbt_the_dw",
