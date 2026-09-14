@@ -15,7 +15,7 @@ git submodule update --init --recursive   # after fresh clone (legacy include/ s
 cp .env.example .env                       # required: settings fails on import without LAKE_ROOT/SEEDS_ROOT/DB__DEV__*
 astro dev start                            # UI http://localhost:8090 (metadata db on 5436)
 astro dev restart                          # rebuild after changing requirements.txt / Dockerfile
-astro dev pytest tests/dags/               # import errors, tags, retries >= 2
+docker exec $(docker ps -qf name=scheduler) bash -c 'cd /usr/local/airflow && pytest -q tests/dags/'   # import errors, tags, retries >= 2 (astro dev pytest has no volumes: migrated DAGs fail with No module named 'core')
 deploy/checkout_versions.sh <dest>        # prod: clone my_ingestion/the_dw at the SHAs in deploy/versions.txt
 ```
 
@@ -59,7 +59,7 @@ def extract():
 - One `@task` per step (`extract` / `transform` / `load`); `load: none` sources (solar, weather) are loaded by `include/utils` + upsert SQL in the DAG.
 - Credentials from `settings` (env), not `Variable.get`. No `setup_logger()` (Airflow configures the root logger).
 - `default_args={"retries": 2}` and at least one tag (enforced by `tests/dags/test_dag_example.py`).
-- Migrated so far: `dag_dbt_the_dw`, `dag_camara_votacoes`, `dag_weather_etl`, `dag_nhl_games_summary`, `dag_smoke_my_ingestion`. Everything else still uses the legacy submodules and the old `raw` schema; migrate one source at a time following the source README in `include/my_ingestion/src/pipelines/<dominio>/<fonte>/README.md`.
+- Migrated so far: `dag_dbt_the_dw`, `dag_camara_votacoes`, `dag_weather_etl`, `dag_nhl_games_summary`, `dag_smoke_my_ingestion`. The pilots stay `schedule=None` until validated (`airflow dags test`, compared against the migrated copies in `analytics_dev`); results in README "Validação dos pilotos". A DAG listed in `.airflowignore` needs `--dagfile-path`. Everything else still uses the legacy submodules and the old `raw` schema; migrate one source at a time following the source README in `include/my_ingestion/src/pipelines/<dominio>/<fonte>/README.md`.
 
 ### Key Dependencies & Pinning
 

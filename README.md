@@ -55,6 +55,29 @@ Uma `@task` por etapa (`extract`/`transform`/`load`), credenciais via `settings`
 
 O Airflow de produção é o `homelab/stacks/airflow` (Runtime 3.3-2). Quando uma DAG entrar em `deploy/prod-dags.txt`, o servidor precisa de: `.env` com `ENV=prod` + `DB__PROD__*` + segredos; `PYTHONPATH` igual ao do `Dockerfile` daqui; `deploy/checkout_versions.sh <destino>` para colocar `my_ingestion` e `the_dw` nos commits de `deploy/versions.txt`, montados nos mesmos caminhos do container de dev; lake montado em `/usr/local/airflow/mylake`; imagem com **Python 3.12** (o default do 3.3-2 é 3.14 e o `my_ingestion` pina `<3.13`). Nada disso é automatizado ainda.
 
+## Validação dos pilotos
+
+As DAGs migradas para o `my_ingestion` ficam com `schedule=None` até rodarem e baterem com os dados migrados em `analytics_dev` (os bancos antigos não existem mais, então a base de comparação são as cópias migradas). Rodadas com `airflow dags test <dag_id>` dentro do scheduler.
+
+| DAG | Data | Antes | Depois | Resultado |
+|---|---|---|---|---|
+| `weather_etl` | 2026-09-13 | 1794 linhas, até 2026-08-14 | 1824 linhas, até 2026-09-13; 30 dias novos sem buraco e sem nulos; checksum das 1794 linhas antigas idêntico; staging limpo e JSONs em `bronze/weather_project` | ✅ passou |
+| `nhl_games_summary` | 2026-09-13 | 74289 jogos | 75698 jogos (inclui 2026-27); nenhum id anterior ausente; mesmo formato de payload; controle registrado com overwrite | ✅ passou |
+| `camara_votacoes_pipeline` | 2026-09-13 | cópias migradas: votações 189607, votos por deputado 1896426, orientações 100105 | votações 190431 (até 2026-09-03), votos por deputado 1899613, orientações 100230; nenhum voto nem orientação do legado ausente; `aprovacao`, `tipovoto` e `orientacaovoto` iguais em todas as chaves comuns; uma votação do legado (`2265737-40`) sumiu porque a Câmara a renumerou para `2265737-46` (mesma data e órgão, id antigo dá 404) | ✅ passou |
+| `dag_dbt_the_dw` | 2026-09-13 | — | 238 de 244 tasks com sucesso (Cosmos, `postgres_dw` via `.env` e volume do `the_dw` funcionando); `staging_openweather.stg_weather_daily` com as datas novas do weather (1824 linhas, até 2026-09-13). Falhas no conteúdo do `the_dw` (working tree em `b09bd1b` com alterações locais): `stg_proventos` converte `"75.0"` para inteiro; teste `not_null_fct_products_sku` procura coluna `sku` que não existe; teste `not_null_fct_games_is_regulation_loss` achou 3 nulos. Não rodaram por dependência: `int_dividendos`, `dividendos`, `inflation` | ❌ não passou (conteúdo do the_dw) |
+
+A câmara leva cerca de 12 minutos (rebuild do bronze de votos). Os 404 em `votos_orientacao` são esperados: essa entidade não guarda as votações sem orientação e tenta de novo a cada execução. O dbt ainda lê as cópias `raw_camara.raw_camara_*`, não estas tabelas novas.
+
+Como nem todos passaram, os schedules continuam `None` (os originais estão anotados em cada DAG).
+
+Testes de DAG: rode dentro do scheduler, que tem os volumes. O `astro dev pytest` sobe um container sem eles e as DAGs migradas falham com `No module named 'core'`:
+
+```bash
+docker exec $(docker ps -qf name=scheduler) bash -c 'cd /usr/local/airflow && pytest -q tests/dags/'
+```
+
+`nhl_games_summary` está no `.airflowignore` (fora de temporada); para testar use `--dagfile-path /usr/local/airflow/dags/dag_nhl_games_summary.py`.
+
 ## DAGs
 
 ### Dados Políticos
