@@ -15,4 +15,4 @@
 #
 # Formato: nome sha url
 my_ingestion dd22225142b3690df153dcdc5ff30f2d83bde110 https://github.com/lksprado/my_ingestion.git
-the_dw 3e9a9852ab792c77fc3cab7c71989b31a9e19c43 https://github.com/lksprado/my_datawarehouse.git
+the_dw 94f1b44d21b40dd5a6f93084801e6b1578855971 https://github.com/lksprado/my_datawarehouse.git
