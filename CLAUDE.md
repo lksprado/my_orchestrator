@@ -66,13 +66,13 @@ with source_dag("<fonte>", schedule="30 2 * * 1", tags=["<dominio>"]) as dag:
 - Exceptions without raw load (atacadao, atacadao_historico, investimentos_fgc) call the my_ingestion function in a plain `@task`; `fundos_imobiliarios` runs `python -m ...run` via `BashOperator` because its logic lives in `__main__`. `load: none` sources (solar, weather) load in the DAG with `include/utils/db_interactors.py` + upsert SQL.
 - Credentials from `settings` (env), not `Variable.get`. No `setup_logger()` (Airflow configures the root logger).
 - New DAGs start with `schedule=None  # em validação...; original "<cron>"` and get the schedule only after passing validation (`airflow dags test <dag_id> --dagfile-path ...`, compared against the migrated copies in `analytics_dev`); results in README "Validação das DAGs".
-- Table names are **not aligned** with the_dw yet (decision 2026-09-14): DAGs write `raw_<fonte>.<entidade>` as my_ingestion defines, while the_dw still reads the migrated copies (`raw_senado.raw_senado_votacoes`, `raw_apsystem`, `raw_vide_editora`, `raw_google_sheets`...). Only weather, NHL, `raw_b3` and `raw_avenue` match.
+- Table names are **aligned** with the_dw since my_ingestion `b3c79f3`: sources the dbt already read load into those tables (`raw_camara.raw_camara_*`, `raw_senado.raw_senado_*`, `raw_apsystem`, `raw_vide_editora.vide_raw_home_featured`, `raw_google_sheets`). `raw_<fonte>.<entidade>` is only for new sources.
 
 ### Runtime requirements
 
 - `packages.txt`: `poppler-utils` (Avenue PDFs via `pdftotext`).
-- `SELENIUM_REMOTE_URL` in `.env` (solar, fundos imobiliários): the image has no Chrome; dev uses the `selenium_container` at `http://host.docker.internal:4444/wd/hub`. Needs the my_ingestion branch `feat/selenium-remoto` (not pushed): `9a68a75` remote driver, `c3ab58d` new APsystems report iframe, `8bcde24` `--disable-dev-shm-usage` for FII (the Selenium container has 64 MB of /dev/shm).
-- `raw_solar.solar_daily_energy` / `solar_hourly_energy` must exist with PKs on `date` / `datetime` (upsert `ON CONFLICT`); created on 2026-09-14 as copies of `raw_apsystem`.
+- `SELENIUM_REMOTE_URL` in `.env` (solar, fundos imobiliários): the image has no Chrome; dev uses the `selenium_container` at `http://host.docker.internal:4444/wd/hub`. Merged in my_ingestion `main`: `9a68a75` remote driver, `c3ab58d` new APsystems report iframe, `8bcde24` `--disable-dev-shm-usage` for FII (the Selenium container has 64 MB of /dev/shm).
+- `raw_apsystem.solar_daily_energy` / `solar_hourly_energy` must have PKs on `date` / `datetime` (upsert `ON CONFLICT`); `dag_solar.py` reads the schema from `solar_config.yml`.
 - `senado_status` copies the e-Cidadania `paginas` bronze into the Senado `parameter_dir` before running (link not declared in the YAMLs).
 
 ### Key Dependencies & Pinning
@@ -91,7 +91,7 @@ Not automated yet. When promoting a DAG (`deploy/prod-dags.txt`), the homelab Ai
 
 ### Known cross-repo mismatches (not fixable here)
 
-- Table names (decision 2026-09-14: left unaligned): the_dw reads the migrated copies (`raw_<fonte>.raw_<fonte>_<entidade>`, `raw_apsystem`, `raw_vide_editora.vide_raw_*`, `raw_google_sheets`, `raw_atacadao.atacadao_raw`), my_ingestion writes `raw_<fonte>.<entidade>`, `raw_solar`, `raw_vide_editorial`, `raw_google`. Matching on both sides: `raw_openweather`, `raw_nhl`, `raw_b3`, `raw_avenue`.
+- Atacadão: my_ingestion writes CSVs only (no DB load), but the_dw still reads `raw_atacadao.atacadao_raw`.
 - `investimentos_fgc` SQL reads `intermediate.int_renda_fixa`; the_dw builds `intermediate_financas.int_renda_fixa` (DAG fails).
 - `atacadao_historico` writes `minha_inflacao.csv` with columns `Mês passado, Var`; the_dw seed `seed_minha_inflacao.csv` has `Categoria, Mes`.
 - NHL `param_schema: staging` in `nhl_config.yml`, but the_dw builds `vw_stg_request_*` in `staging_nhl`.

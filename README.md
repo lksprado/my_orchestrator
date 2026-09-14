@@ -60,9 +60,9 @@ with source_dag("ranking_politicos", schedule="0 7 * * 1", tags=["demodados"]) a
 
 **pandas fica em 2.1.4** (Airflow 3.0.6 → SQLAlchemy 1.4); o `my_ingestion` roda com pandas 3.x no venv dele. A DAG `smoke_my_ingestion` valida o wiring (imports, `.env`, banco, the_dw) em dev e em prod.
 
-**Requisitos de execução:** `poppler-utils` na imagem (PDFs da Avenue); `SELENIUM_REMOTE_URL` no `.env` para Solar e fundos imobiliários (a imagem não tem Chrome; em dev é o `selenium_container`); tabelas `raw_solar.*` com PK para o upsert.
+**Requisitos de execução:** `poppler-utils` na imagem (PDFs da Avenue); `SELENIUM_REMOTE_URL` no `.env` para Solar e fundos imobiliários (a imagem não tem Chrome; em dev é o `selenium_container`); tabelas `raw_apsystem.solar_*` com PK para o upsert.
 
-**Nomes de tabela desalinhados com o the_dw (decisão de 2026-09-14):** as DAGs gravam onde o `my_ingestion` define (`raw_senado.votacoes`, `raw_solar`, `raw_vide_editorial`, `raw_google`...), mas o dbt ainda lê as cópias migradas com os nomes antigos (`raw_senado.raw_senado_votacoes`, `raw_apsystem`, `raw_vide_editora`, `raw_google_sheets`...). Até alinhar, essas cópias ficam congeladas. Batem dos dois lados: weather, NHL, `raw_b3` e `raw_avenue`.
+**Nomes de tabela alinhados com o the_dw** desde o `my_ingestion` `b3c79f3` (2026-09-14): as fontes que o dbt já lia carregam nas mesmas tabelas (`raw_camara.raw_camara_votacoes`, `raw_senado.raw_senado_votacoes`, `raw_apsystem.solar_*`, `raw_vide_editora.vide_raw_home_featured`, `raw_google_sheets.*`...). `raw_<fonte>.<entidade>` vale só para fonte nova. Única exceção que resta: o Atacadão não carrega em banco, e o the_dw ainda lê `raw_atacadao.atacadao_raw`.
 
 ### Prod (`atb`)
 
@@ -70,7 +70,7 @@ O Airflow de produção é o `homelab/stacks/airflow` (Runtime 3.3-2). Quando um
 
 ## Validação das DAGs
 
-Cada DAG rodou com `airflow dags test <dag_id> --dagfile-path ...` dentro do scheduler e foi comparada com as cópias migradas em `analytics_dev` (os bancos antigos não existem mais). Critério: execução com sucesso e nenhuma chave da cópia ausente, com a diferença explicada quando houver. Quem passou recebeu o schedule alvo em commit próprio.
+Cada DAG rodou com `airflow dags test <dag_id> --dagfile-path ...` dentro do scheduler e foi comparada com as cópias migradas em `analytics_dev` (os bancos antigos não existem mais). A validação usou os nomes novos; com o alinhamento, as tabelas que o the_dw lê foram recarregadas do mesmo bronze e têm as mesmas contagens da coluna "Depois". Critério: execução com sucesso e nenhuma chave da cópia ausente, com a diferença explicada quando houver. Quem passou recebeu o schedule alvo em commit próprio.
 
 | DAG | Data | Antes | Depois | Resultado |
 |---|---|---|---|---|
@@ -134,7 +134,7 @@ Horários em UTC. "manual" = sem agendamento, disparo pela UI.
 
 | DAG | O que faz | Schedule |
 |-----|-----------|----------|
-| `investimentos_google` | Abas das planilhas do Google Sheets → `raw_google` | diário 03:00 |
+| `investimentos_google` | Abas das planilhas do Google Sheets → `raw_google_sheets` | diário 03:00 |
 | `investimentos_arquivos` | Excel da B3 e PDFs da Avenue colocados no landing → `raw_b3`, `raw_avenue` | manual |
 | `investimentos_fgc` | Seed de-para das instituições do FGC no `the_dw` | manual |
 | `fundos_imobiliarios` | Lista, indicadores e histórico dos FII do mês (params `month`, `force`, `consolidate_only`) | manual |
@@ -143,7 +143,7 @@ Horários em UTC. "manual" = sem agendamento, disparo pela UI.
 
 | DAG | O que faz | Schedule |
 |-----|-----------|----------|
-| `solar` | Geração diária e horária (Selenium) → upsert em `raw_solar` | diário 00:00 |
+| `solar` | Geração diária e horária (Selenium) → upsert em `raw_apsystem` | diário 00:00 |
 | `weather_etl` | OpenWeather → upsert em `raw_openweather` | diário 01:00 |
 
 ### Inflação (tag `inflation`)
