@@ -16,7 +16,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "senado_status",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "0 6 * * *"
+    schedule="0 6 * * *",
     tags=["demodados"],
     description="Senado: status das matérias consultadas no e-Cidadania",
 ) as dag:
