@@ -11,7 +11,7 @@ from include.utils.etl_dag import source_dag
 
 with source_dag(
     "atacadao",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "0 7 28 * *"
+    schedule="0 7 28 * *",
     tags=["inflation"],
     description="Atacadão: preços da cesta pessoal",
 ) as dag:
