@@ -1,7 +1,7 @@
 """Energia solar (portal APsystems), incremental por data.
 
 extract e transform vêm do my_ingestion (load: none): high-water mark em
-raw_solar, JSON por dia via Selenium remoto e os CSVs diário e horário. A carga
+raw_apsystem, JSON por dia via Selenium remoto e os CSVs diário e horário. A carga
 fica aqui, como na dag_weather_etl: CSV -> staging -> upsert -> JSONs movidos
 para bronze/solar_project -> drop da staging.
 """
@@ -13,7 +13,8 @@ from pipelines.energia.solar.solar_etl import CONFIG_FILE, ETLS
 from include.utils.db_interactors import execute_query, move_files_after_loading, send_csv_df_to_db
 from include.utils.etl_dag import etl_group, source_dag
 
-SCHEMA = "raw_solar"
+# Schema vem do solar_config.yml (raw_apsystem, o que o the_dw lê).
+SCHEMA = PipelineConfig.from_yaml(CONFIG_FILE, "daily_energy", criar_dirs=False).db_schema
 
 UPSERT = {
     "daily_energy": f"""
@@ -31,7 +32,7 @@ UPSERT = {
         ON CONFLICT (datetime) DO UPDATE SET energy = EXCLUDED.energy;
     """,
 }
-# Pré-requisito: PKs em raw_solar.solar_daily_energy(date) e solar_hourly_energy(datetime).
+# Pré-requisito: PKs em raw_apsystem.solar_daily_energy(date) e solar_hourly_energy(datetime).
 
 
 def _cfg(entidade: str) -> PipelineConfig:

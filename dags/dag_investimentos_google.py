@@ -13,6 +13,6 @@ with source_dag(
     "investimentos_google",
     schedule="0 3 * * *",
     tags=["financas"],
-    description="Investimentos: planilhas do Google Sheets para raw_google",
+    description="Investimentos: planilhas do Google Sheets para raw_google_sheets",
 ) as dag:
     etl_group(CONFIG_FILE, ETLS, "google")
