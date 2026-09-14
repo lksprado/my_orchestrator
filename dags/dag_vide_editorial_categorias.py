@@ -11,7 +11,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "vide_editorial_categorias",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "0 7 * * 5"
+    schedule="0 7 * * 5",
     tags=["livros"],
     description="Vide Editorial: páginas de categorias",
 ) as dag:
