@@ -71,7 +71,7 @@ with source_dag("<fonte>", schedule="30 2 * * 1", tags=["<dominio>"]) as dag:
 ### Runtime requirements
 
 - `packages.txt`: `poppler-utils` (Avenue PDFs via `pdftotext`).
-- `SELENIUM_REMOTE_URL` in `.env` (solar, fundos imobiliários): the image has no Chrome; dev uses the `selenium_container` at `http://host.docker.internal:4444/wd/hub`. Needs my_ingestion commit `9a68a75` (branch `feat/selenium-remoto`).
+- `SELENIUM_REMOTE_URL` in `.env` (solar, fundos imobiliários): the image has no Chrome; dev uses the `selenium_container` at `http://host.docker.internal:4444/wd/hub`. Needs the my_ingestion branch `feat/selenium-remoto` (not pushed): `9a68a75` remote driver, `c3ab58d` new APsystems report iframe, `8bcde24` `--disable-dev-shm-usage` for FII (the Selenium container has 64 MB of /dev/shm).
 - `raw_solar.solar_daily_energy` / `solar_hourly_energy` must exist with PKs on `date` / `datetime` (upsert `ON CONFLICT`); created on 2026-09-14 as copies of `raw_apsystem`.
 - `senado_status` copies the e-Cidadania `paginas` bronze into the Senado `parameter_dir` before running (link not declared in the YAMLs).
 
