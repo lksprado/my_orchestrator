@@ -14,3 +14,4 @@ airflow.db
 # deploy/checkout_versions.sh em prod). Nada é versionado aqui.
 include/my_ingestion/
 dbt/my_analytics/
+logs/
