@@ -11,7 +11,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "investimentos_google",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "0 3 * * *"
+    schedule="0 3 * * *",
     tags=["financas"],
     description="Investimentos: planilhas do Google Sheets para raw_google",
 ) as dag:
