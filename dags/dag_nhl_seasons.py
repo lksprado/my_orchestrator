@@ -40,7 +40,7 @@ def nhl_seasons():
     
     # Configuração do profile do dbt usando Cosmos
     profile_config = ProfileConfig(
-        profile_name="my_datawarehouse",
+        profile_name="my_analytics",
         target_name="dev",
         profile_mapping=PostgresUserPasswordProfileMapping(
             conn_id="postgres_dw",
@@ -67,7 +67,7 @@ def nhl_seasons():
     dbt_run_all = DbtTaskGroup(
         group_id="dbt_run_all",
         project_config=ProjectConfig(
-            dbt_project_path="/usr/local/airflow/dbt/my_datawarehouse",
+            dbt_project_path="/usr/local/airflow/dbt/my_analytics",
         ),
         profile_config=profile_config,
         execution_config=ExecutionConfig(

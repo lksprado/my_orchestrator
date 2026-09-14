@@ -3,7 +3,7 @@
 Primeira vez (ou máquina nova):
 ```shell
 git clone https://github.com/lksprado/my_ingestion.git ~/workspace/my_ingestion
-git clone https://github.com/lksprado/my_datawarehouse.git ~/workspace/the_dw
+git clone https://github.com/lksprado/my_analytics.git ~/workspace/my_analytics
 cp .env.example .env        # preencher credenciais; dev exige DB__DEV__NAME=analytics_dev
 astro dev start
 ```
@@ -13,8 +13,8 @@ UI em http://localhost:8090 (a 8080 é do Airflow do homelab). Depois de subir, 
 
 ## Dev: código ao vivo por volume
 
-O `my_ingestion` e o `the_dw` **não são submódulos**. O `docker-compose.override.yml` monta
-`~/workspace/my_ingestion/src` e `~/workspace/the_dw` dentro do container. Editar lá reflete
+O `my_ingestion` e o `my_analytics` **não são submódulos**. O `docker-compose.override.yml` monta
+`~/workspace/my_ingestion/src` e `~/workspace/my_analytics` dentro do container. Editar lá reflete
 no Airflow na hora, sem rebuild e sem ponteiro para atualizar.
 
 Só `src/` do my_ingestion é montado, de propósito: o `.env` dele (localhost, `/media/...`)
@@ -34,8 +34,8 @@ include/my_ingestion") e rode `astro dev restart` para rebuildar.
 - **DAGs manuais** e o que precisam antes:
   - `camara_cadastro`, `senado_cadastro`: nada; rode quando mudar a legislatura.
   - `investimentos_arquivos`: copie os Excel da B3 e os PDFs da Avenue para `raw/investments/b3|avenue/<pessoa>/`.
-  - `investimentos_fgc`: `raw/investments/instituicoes/instituicoes_conglomerado_prudencial.csv` no lake e a camada intermediate do the_dw construída. Hoje falha: o SQL lê `intermediate.int_renda_fixa`, e o the_dw gera `intermediate_financas`.
-  - `atacadao_historico`: CSVs mensais em `bronze/inflation/months/`. Grava `minha_inflacao.csv` nos seeds do the_dw, com colunas diferentes do seed atual.
+  - `investimentos_fgc`: `raw/investments/instituicoes/instituicoes_conglomerado_prudencial.csv` no lake e a camada intermediate do my_analytics construída. Hoje falha: o SQL lê `intermediate.int_renda_fixa`, e o my_analytics gera `intermediate_financas`.
+  - `atacadao_historico`: CSVs mensais em `bronze/inflation/months/`. Grava `minha_inflacao.csv` nos seeds do my_analytics, com colunas diferentes do seed atual.
   - `fundos_imobiliarios`: params `month` (YYYY-MM, vazio = mês corrente), `force` e `consolidate_only`. Usa o Selenium remoto e leva uns 40 minutos.
 - **Validar uma DAG** sem esperar o scheduler (a DAG precisa estar em arquivo; a do NHL, ignorada, também funciona assim):
   ```shell

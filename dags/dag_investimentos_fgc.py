@@ -1,7 +1,7 @@
 """Investimentos: de-para das instituições do FGC (manual).
 
 Exceção ao GenericETL: lê a lista do conglomerado prudencial no lake e grava o
-seed em SEEDS_ROOT (em dev, o working tree do the_dw). Depende da camada
+seed em SEEDS_ROOT (em dev, o working tree do my_analytics). Depende da camada
 intermediate já materializada.
 """
 

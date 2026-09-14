@@ -1,6 +1,6 @@
 """Exporta as tabelas de apresentação do domínio demodados para CSV em gold/.
 
-Lê do the_dw (schema presentation_demodados) pela connection postgres_dw.
+Lê do my_analytics (schema presentation_demodados) pela connection postgres_dw.
 """
 
 import os

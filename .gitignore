@@ -13,4 +13,4 @@ airflow.db
 # Pontos de montagem dos repos do workspace (docker-compose.override.yml em dev,
 # deploy/checkout_versions.sh em prod). Nada é versionado aqui.
 include/my_ingestion/
-dbt/the_dw/
+dbt/my_analytics/

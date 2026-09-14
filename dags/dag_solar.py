@@ -13,7 +13,7 @@ from pipelines.energia.solar.solar_etl import CONFIG_FILE, ETLS
 from include.utils.db_interactors import execute_query, move_files_after_loading, send_csv_df_to_db
 from include.utils.etl_dag import etl_group, source_dag
 
-# Schema vem do solar_config.yml (raw_apsystem, o que o the_dw lê).
+# Schema vem do solar_config.yml (raw_apsystem, o que o my_analytics lê).
 SCHEMA = PipelineConfig.from_yaml(CONFIG_FILE, "daily_energy", criar_dirs=False).db_schema
 
 UPSERT = {

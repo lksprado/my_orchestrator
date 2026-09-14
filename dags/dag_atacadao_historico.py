@@ -1,7 +1,7 @@
 """Atacadão: consolida os CSVs mensais no seed minha_inflacao (manual).
 
 Lê bronze/inflation/months (alimentado fora do my_ingestion) e grava em
-SEEDS_ROOT (em dev, o working tree do the_dw).
+SEEDS_ROOT (em dev, o working tree do my_analytics).
 """
 
 from airflow.sdk import task

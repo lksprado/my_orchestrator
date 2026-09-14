@@ -1,6 +1,6 @@
-"""Exporta marts de energia e inflação do the_dw para CSV em gold/.
+"""Exporta marts de energia e inflação do my_analytics para CSV em gold/.
 
-Os models foram renomeados no the_dw; os nomes dos CSVs continuam os antigos
+Os models foram renomeados no my_analytics; os nomes dos CSVs continuam os antigos
 para não quebrar quem consome os arquivos. As colunas seguem os models atuais.
 """
 
@@ -14,7 +14,7 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 GOLD_DIR = "/usr/local/airflow/mylake/gold/"
 
-# arquivo em gold/ -> tabela no the_dw
+# arquivo em gold/ -> tabela no my_analytics
 EXPORTS = {
     "mrt_energia_clima": "marts_energy.solar_energy_daily_weather_conditions",
     "mrt_energia_hora": "marts_energy.solar_energy_hourly_generation",
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 @dag(
-    dag_id="extract_postgres_mydatawarehouse",
+    dag_id="extract_my_analytics",
     start_date=datetime(2025, 11, 17),
     schedule="30 3 * * *",
     catchup=False,

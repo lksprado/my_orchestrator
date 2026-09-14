@@ -1,6 +1,6 @@
 """DAGs da factory ``include.utils.etl_dag``: etapas de cada entidade na ordem.
 
-Rode dentro do scheduler (os volumes do my_ingestion e do the_dw só existem lá):
+Rode dentro do scheduler (os volumes do my_ingestion e do my_analytics só existem lá):
     docker exec $(docker ps -qf name=scheduler) bash -c \
         'cd /usr/local/airflow && pytest -q tests/dags/'
 """

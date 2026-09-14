@@ -9,10 +9,10 @@
 #
 # O deploy popula os diretórios com:
 #   deploy/checkout_versions.sh <destino>
-# e monta <destino>/my_ingestion/src e <destino>/the_dw nos mesmos caminhos do
+# e monta <destino>/my_ingestion/src e <destino>/my_analytics nos mesmos caminhos do
 # container de dev (/usr/local/airflow/include/my_ingestion/src e
-# /usr/local/airflow/dbt/the_dw).
+# /usr/local/airflow/dbt/my_analytics).
 #
 # Formato: nome sha url
 my_ingestion b3c79f3e4270d8ca6e60fca97f108a93f581c722 https://github.com/lksprado/my_ingestion.git
-the_dw b7f8248f9ecf19b0cfbdfc1b3fa7ba76ed5bfb7b https://github.com/lksprado/my_datawarehouse.git
+my_analytics b7f8248f9ecf19b0cfbdfc1b3fa7ba76ed5bfb7b https://github.com/lksprado/my_analytics.git

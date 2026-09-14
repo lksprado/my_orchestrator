@@ -4,7 +4,7 @@ from cosmos import DbtDag, ExecutionConfig, ProfileConfig, ProjectConfig, Render
 from cosmos.profiles import PostgresUserPasswordProfileMapping
 
 profile_config_dev = ProfileConfig(
-    profile_name="my_datawarehouse",
+    profile_name="my_analytics",
     target_name="dev",
     profile_mapping=PostgresUserPasswordProfileMapping(
         conn_id="postgres_dw",
@@ -14,8 +14,8 @@ profile_config_dev = ProfileConfig(
 
 my_cosmos_dag = DbtDag(
     project_config=ProjectConfig(
-        dbt_project_path="/usr/local/airflow/dbt/my_datawarehouse",  ### caminho dentro da maquina docker
-        project_name="my_datawarehouse",
+        dbt_project_path="/usr/local/airflow/dbt/my_analytics",  ### caminho dentro da maquina docker
+        project_name="my_analytics",
     ),
     profile_config=profile_config_dev,
     # Sem load_method explícito → Cosmos usa o cache do `dbt ls` (chave por hash

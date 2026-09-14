@@ -1,4 +1,4 @@
-"""Smoke test do wiring com o my_ingestion e o the_dw.
+"""Smoke test do wiring com o my_ingestion e o my_analytics.
 
 Roda à mão (schedule=None) em dev e em prod: confere que core/settings/pipelines
 importam do PYTHONPATH, que o .env chegou ao container (ENV, LAKE_ROOT,
@@ -15,7 +15,7 @@ from airflow.decorators import dag, task
 
 logger = logging.getLogger(__name__)
 
-DBT_PROJECT = Path("/usr/local/airflow/dbt/the_dw/dbt_project.yml")
+DBT_PROJECT = Path("/usr/local/airflow/dbt/my_analytics/dbt_project.yml")
 
 
 @dag(
@@ -65,8 +65,8 @@ def smoke_my_ingestion():
     @task
     def check_dbt_project():
         if not DBT_PROJECT.is_file():
-            raise FileNotFoundError(f"the_dw não montado: {DBT_PROJECT}")
-        logger.info("the_dw em %s", DBT_PROJECT.parent)
+            raise FileNotFoundError(f"my_analytics não montado: {DBT_PROJECT}")
+        logger.info("my_analytics em %s", DBT_PROJECT.parent)
 
     check_imports_and_settings() >> [check_database(), check_dbt_project()]
 
