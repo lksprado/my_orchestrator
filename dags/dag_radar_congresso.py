@@ -11,7 +11,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "radar_congresso",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "@weekly"
+    schedule="@weekly",
     tags=["demodados"],
     description="Radar do Congresso: governismo de deputados e senadores, parlamentares",
 ) as dag:
