@@ -13,7 +13,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "senado",
-    schedule=None,  # em validação, ver README (Validação das DAGs); original "30 2 1 * *"
+    schedule="30 2 1 * *",
     tags=["demodados"],
     description="Senado: votações (2001 em diante), votos, orientações e processos",
     max_active_tasks=2,
