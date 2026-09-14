@@ -4,19 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Apache Airflow orchestration project (repo `my_orchestrator`) on Astro Runtime 3.0-10 (Airflow 3.0.6, Python 3.12). It only orchestrates: ingestion code lives in the `my_ingestion` monorepo (`include/my_ingestion`, submodule) and transformation in the `the_dw` dbt project (`dbt/the_dw`, submodule, remote `my_datawarehouse`). Data follows a medallion architecture: landing/bronze files in the lake → `raw_<fonte>.*` tables → dbt staging/intermediate/marts. Code, comments and docs are in Portuguese.
+Apache Airflow orchestration project (repo `my_orchestrator`) on Astro Runtime 3.0-10 (Airflow 3.0.6, Python 3.12). It only orchestrates: ingestion code lives in the `my_ingestion` monorepo and transformation in the `the_dw` dbt project (remote `my_datawarehouse`). Neither is a submodule: dev mounts `~/workspace` by volume, prod checks out the commits pinned in `deploy/versions.txt`. Data follows a medallion architecture: landing/bronze files in the lake → `raw_<fonte>.*` tables → dbt staging/intermediate/marts. Code, comments and docs are in Portuguese.
 
 Two environments, selected by environment variables only: `dev` = this machine (CLI of my_ingestion and this local Airflow, database `analytics_dev`) and `prod` = the `atb` server (`homelab/stacks/airflow`). Same DAG code in both; only the `.env` changes.
 
 ## Common Commands
 
 ```bash
-git submodule update --init --recursive   # after fresh clone
+git submodule update --init --recursive   # after fresh clone (legacy include/ submodules only)
 cp .env.example .env                       # required: settings fails on import without LAKE_ROOT/SEEDS_ROOT/DB__DEV__*
 astro dev start                            # UI http://localhost:8090 (metadata db on 5436)
 astro dev restart                          # rebuild after changing requirements.txt / Dockerfile
 astro dev pytest tests/dags/               # import errors, tags, retries >= 2
-git submodule update --remote include/my_ingestion dbt/the_dw   # bump pointers (only matters for build/prod)
+deploy/checkout_versions.sh <dest>        # prod: clone my_ingestion/the_dw at the SHAs in deploy/versions.txt
 ```
 
 Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, database and the_dw mount.
@@ -26,18 +26,19 @@ Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, databas
 ### Repository Structure
 
 - `dags/` — one file per pipeline (`@dag`/`@task` style)
-- `include/my_ingestion/` — submodule; `src/` is on `PYTHONPATH` (Dockerfile), so DAGs import `core`, `pipelines`, `settings` **without package prefix** (`from core import build_etl`). The package is not pip-installed; only its deps are (see `requirements.txt`).
+- `include/my_ingestion/` — mount point, gitignored (not a submodule); `src/` is on `PYTHONPATH` (Dockerfile), so DAGs import `core`, `pipelines`, `settings` **without package prefix** (`from core import build_etl`). The package is not pip-installed; only its deps are (see `requirements.txt`).
 - `include/utils/` — Airflow-side helpers kept here: `db_interactors.py` (loads via connection `postgres_dw`, upserts, `move_files_after_loading`), `logger_cfg.py`
 - `include/{local_setup,Solar,openweather,nhl_extraction,vide,inflation,finance}/` — **legacy submodules, being phased out**. Only DAGs not yet migrated import them. Do not add new code there.
-- `dbt/the_dw/` — submodule; single dbt project for all domains (schemas derived from model path by `generate_schema_name`). Run by Cosmos (`DbtDag`) with the `dbt_venv` executable.
+- `dbt/the_dw/` — mount point, gitignored (not a submodule); single dbt project for all domains (schemas derived from model path by `generate_schema_name`). Run by Cosmos (`DbtDag`) with the `dbt_venv` executable.
 - `deploy/prod-dags.txt` — allowlist of DAGs promoted to prod
+- `deploy/versions.txt` + `deploy/checkout_versions.sh` — exact `my_ingestion`/`the_dw` commits prod runs; promoting = bumping a SHA in its own commit
 - `tests/dags/` — DagBag validation
 - `airflow_settings.yaml` — local connections/variables (not for prod)
 - `docker-compose.override.yml` — dev only: bind mounts of `~/workspace/my_ingestion/src`, `~/workspace/the_dw`, the lake and `~/.secrets`
 
 ### Dev bind mounts
 
-In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/the_dw` are mounted over the submodules, so edits there are live in Airflow. Only `src/` of my_ingestion is mounted on purpose: its own `.env` (localhost, `/media/...`) must not be read inside the container; configuration comes exclusively from this repo's `.env`.
+In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/the_dw` are mounted at `include/my_ingestion/src` and `dbt/the_dw`, so edits there are live in Airflow. Without `~/workspace` checked out, the migrated DAGs fail to import. Only `src/` of my_ingestion is mounted on purpose: its own `.env` (localhost, `/media/...`) must not be read inside the container; configuration comes exclusively from this repo's `.env`.
 
 ### Configuration (`.env`)
 
@@ -72,7 +73,7 @@ def extract():
 
 ### Prod (`atb`)
 
-Not automated yet. When promoting a DAG (`deploy/prod-dags.txt`), the homelab Airflow needs: `.env` with `ENV=prod` + `DB__PROD__*` + secrets; the same `PYTHONPATH`; `include/my_ingestion` and `dbt/the_dw` at the submodule pointers; lake at `/usr/local/airflow/mylake`; an image with Python 3.12 (Runtime 3.3-2 defaults to 3.14, my_ingestion pins `<3.13`).
+Not automated yet. When promoting a DAG (`deploy/prod-dags.txt`), the homelab Airflow needs: `.env` with `ENV=prod` + `DB__PROD__*` + secrets; the same `PYTHONPATH`; `deploy/checkout_versions.sh` output mounted at the same container paths; lake at `/usr/local/airflow/mylake`; an image with Python 3.12 (Runtime 3.3-2 defaults to 3.14, my_ingestion pins `<3.13`).
 
 ### Known cross-repo mismatches (not fixable here)
 

@@ -2,7 +2,9 @@
 
 Primeira vez (ou máquina nova):
 ```shell
-git submodule update --init --recursive
+git submodule update --init --recursive   # só os submódulos legados de include/
+git clone https://github.com/lksprado/my_ingestion.git ~/workspace/my_ingestion
+git clone https://github.com/lksprado/my_datawarehouse.git ~/workspace/the_dw
 cp .env.example .env        # preencher credenciais; dev exige DB__DEV__NAME=analytics_dev
 astro dev start
 ```
@@ -10,30 +12,33 @@ astro dev start
 UI em http://localhost:8090 (a 8080 é do Airflow do homelab). Depois de subir, rode a DAG
 `smoke_my_ingestion` para conferir o wiring.
 
-## Dev: código ao vivo
+## Dev: código ao vivo por volume
 
-Em dev o `docker-compose.override.yml` monta o working tree de `~/workspace/my_ingestion/src`
-e `~/workspace/the_dw` por cima dos submódulos `include/my_ingestion` e `dbt/the_dw`.
-Editar lá reflete no Airflow sem rebuild nem bump de ponteiro. O bump só importa para
-o build da imagem (deps do `requirements.txt`) e para prod.
+O `my_ingestion` e o `the_dw` **não são submódulos**. O `docker-compose.override.yml` monta
+`~/workspace/my_ingestion/src` e `~/workspace/the_dw` dentro do container. Editar lá reflete
+no Airflow na hora, sem rebuild e sem ponteiro para atualizar.
 
 Só `src/` do my_ingestion é montado, de propósito: o `.env` dele (localhost, `/media/...`)
 não pode ser lido dentro do container. A configuração vem apenas do `.env` daqui.
 
-## Submódulos
-
-`include/my_ingestion`, `dbt/the_dw` e os submódulos antigos de `include/` (em extinção).
-Após commit e push nos repos originais, para atualizar o ponteiro:
-```shell
-git pull origin main
-git submodule update --remote include/my_ingestion dbt/the_dw
-git add include/my_ingestion dbt/the_dw
-git commit -m "chore: bump submódulos para última versão"
-git push origin main
-```
-
 Mudou dependência no `my_ingestion`? Espelhe em `requirements.txt` (bloco "deps do
 include/my_ingestion") e rode `astro dev restart` para rebuildar.
+
+## Prod: versões fixadas
+
+Prod executa exatamente os commits de `deploy/versions.txt`. Para promover uma versão nova,
+troque o SHA em commit próprio:
+```shell
+git -C ~/workspace/my_ingestion rev-parse origin/main   # SHA a promover
+# editar deploy/versions.txt
+git commit -m "chore(deploy): promove my_ingestion para <sha curto>" deploy/versions.txt
+```
+No servidor, `deploy/checkout_versions.sh <destino>` coloca os repos nesses commits.
+
+## Submódulos legados
+
+Os submódulos de `include/` (`local_setup`, `Solar`, `openweather`, `nhl_extraction`, `vide`,
+`inflation`, `finance`) estão em extinção e saem conforme cada DAG migra para o `my_ingestion`.
 
 # Troubleshooting
 Problema:
@@ -41,6 +46,11 @@ Erro ao criar tabela via dataframe com pandas `to_sql`: "Engine object has no at
 Solução:
 pandas fica em 2.1.4 enquanto o Airflow usar SQLAlchemy 1.4 (Airflow 3.0.6). Não suba
 o pandas para a versão do my_ingestion (3.x) sem o Airflow ter migrado para SQLAlchemy 2.
+
+Problema:
+DAG falha na importação com `ModuleNotFoundError: No module named 'core'`.
+Solução:
+O `~/workspace/my_ingestion` não existe ou não está montado. Clone o repo e rode `astro dev restart`.
 
 Problema:
 DAG falha na importação com `ValidationError` do `settings` (faltam `DB__DEV__*`, `LAKE_ROOT`...).

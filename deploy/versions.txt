@@ -1,0 +1,18 @@
+# Versões dos repositórios que o Airflow executa em produção (servidor atb)
+#
+# REGRA: prod roda EXATAMENTE estes commits. Em dev o docker-compose.override.yml
+# monta o working tree de ~/workspace e este arquivo não é usado.
+#
+# Promover = trocar o SHA, em commit próprio, para ficar visível no histórico e
+# ser fácil de reverter. Pegue o SHA com:
+#   git -C ~/workspace/my_ingestion rev-parse origin/main
+#
+# O deploy popula os diretórios com:
+#   deploy/checkout_versions.sh <destino>
+# e monta <destino>/my_ingestion/src e <destino>/the_dw nos mesmos caminhos do
+# container de dev (/usr/local/airflow/include/my_ingestion/src e
+# /usr/local/airflow/dbt/the_dw).
+#
+# Formato: nome sha url
+my_ingestion dd22225142b3690df153dcdc5ff30f2d83bde110 https://github.com/lksprado/my_ingestion.git
+the_dw 3e9a9852ab792c77fc3cab7c71989b31a9e19c43 https://github.com/lksprado/my_datawarehouse.git

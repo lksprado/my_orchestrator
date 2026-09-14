@@ -2,7 +2,7 @@
 
 Orquestração Apache Airflow (Astro Runtime 3.0-10 / Airflow 3.0.6 / Python 3.12) com pipelines de ETL em PostgreSQL seguindo arquitetura medallion: raw → dbt (staging/intermediate/marts) → exportação CSV.
 
-O código de ingestão vive no monorepo [`my_ingestion`](https://github.com/lksprado/my_ingestion) e a transformação no [`the_dw`](https://github.com/lksprado/my_datawarehouse); este repo só orquestra. Os dois entram aqui como submódulos e, em dev, como bind mount do `~/workspace` (edita lá, o Airflow vê na hora).
+O código de ingestão vive no monorepo [`my_ingestion`](https://github.com/lksprado/my_ingestion) e a transformação no [`the_dw`](https://github.com/lksprado/my_datawarehouse); este repo só orquestra. Os dois **não** são submódulos: em dev entram por volume do `~/workspace` (edita lá, o Airflow vê na hora) e em prod pelos commits fixados em `deploy/versions.txt`.
 
 **UI:** http://localhost:8080 | **API:** http://localhost:8090
 
@@ -11,11 +11,12 @@ O código de ingestão vive no monorepo [`my_ingestion`](https://github.com/lksp
 | Diretório | Descrição |
 |-----------|-----------|
 | `dags/` | DAG files — um por pipeline |
-| `include/my_ingestion/` | Submódulo do monorepo de ingestão (`src/` entra no `PYTHONPATH`: `core`, `pipelines`, `settings`) |
+| `include/my_ingestion/` | Ponto de montagem do monorepo de ingestão, fora do git (`src/` entra no `PYTHONPATH`: `core`, `pipelines`, `settings`) |
 | `include/utils/` | Helpers do lado Airflow (`db_interactors.py`) — carga via connection `postgres_dw` |
 | `include/{local_setup,Solar,openweather,nhl_extraction,vide,inflation,finance}/` | Submódulos antigos, **em extinção**: só as DAGs ainda não migradas dependem deles |
-| `dbt/the_dw/` | Submódulo do projeto dbt único (todos os domínios, inclusive demodados) |
+| `dbt/the_dw/` | Ponto de montagem do projeto dbt único (todos os domínios, inclusive demodados), fora do git |
 | `deploy/prod-dags.txt` | Allowlist de DAGs promovidas ao `atb` |
+| `deploy/versions.txt` | Commit exato do `my_ingestion` e do `the_dw` que prod executa (`deploy/checkout_versions.sh` aplica) |
 | `tests/` | Validação de importação e conexões |
 
 ## Configuração (dev × prod por variáveis de ambiente)
@@ -50,7 +51,7 @@ Uma `@task` por etapa (`extract`/`transform`/`load`), credenciais via `settings`
 
 ### Prod (`atb`)
 
-O Airflow de produção é o `homelab/stacks/airflow` (Runtime 3.3-2). Quando uma DAG entrar em `deploy/prod-dags.txt`, o servidor precisa de: `.env` com `ENV=prod` + `DB__PROD__*` + segredos; `PYTHONPATH` igual ao do `Dockerfile` daqui; `include/my_ingestion` e `dbt/the_dw` no ponteiro dos submódulos; lake montado em `/usr/local/airflow/mylake`; imagem com **Python 3.12** (o default do 3.3-2 é 3.14 e o `my_ingestion` pina `<3.13`). Nada disso é automatizado ainda.
+O Airflow de produção é o `homelab/stacks/airflow` (Runtime 3.3-2). Quando uma DAG entrar em `deploy/prod-dags.txt`, o servidor precisa de: `.env` com `ENV=prod` + `DB__PROD__*` + segredos; `PYTHONPATH` igual ao do `Dockerfile` daqui; `deploy/checkout_versions.sh <destino>` para colocar `my_ingestion` e `the_dw` nos commits de `deploy/versions.txt`, montados nos mesmos caminhos do container de dev; lake montado em `/usr/local/airflow/mylake`; imagem com **Python 3.12** (o default do 3.3-2 é 3.14 e o `my_ingestion` pina `<3.13`). Nada disso é automatizado ainda.
 
 ## DAGs
 

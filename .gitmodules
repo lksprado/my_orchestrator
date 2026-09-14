@@ -8,9 +8,6 @@
 [submodule "include/openweather"]
 	path = include/openweather
 	url = https://github.com/lksprado/openweather
-[submodule "dbt/the_dw"]
-	path = dbt/the_dw
-	url = git@github.com-pessoal:lksprado/my_datawarehouse.git
 [submodule "include/nhl_extraction"]
 	path = include/nhl_extraction
 	url = git@github.com-pessoal:lksprado/nhl-extraction.git
@@ -23,6 +20,3 @@
 [submodule "include/finance"]
 	path = include/finance
 	url = git@github.com-pessoal:lksprado/finance.git
-[submodule "include/my_ingestion"]
-	path = include/my_ingestion
-	url = git@github.com-pessoal:lksprado/my_ingestion.git
