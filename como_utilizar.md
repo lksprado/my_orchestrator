@@ -52,7 +52,12 @@ git -C ~/workspace/my_ingestion rev-parse origin/main   # SHA a promover
 # editar deploy/versions.txt
 git commit -m "chore(deploy): promove my_ingestion para <sha curto>" deploy/versions.txt
 ```
-No servidor, `deploy/checkout_versions.sh <destino>` coloca os repos nesses commits.
+Depois do push, envie para o `atb` e reinicie (o segundo comando pede o sudo do servidor):
+```shell
+deploy/deploy_prod.sh
+ssh -t atb /srv/airflow/start.sh restart
+```
+Promover uma DAG é o mesmo fluxo: adicione o arquivo em `deploy/prod-dags.txt`, commit, push, deploy.
 
 ## Sem submódulos
 

@@ -2,7 +2,7 @@
 
 Orquestração Apache Airflow (Astro Runtime 3.0-10 / Airflow 3.0.6 / Python 3.12) com pipelines de ETL em PostgreSQL seguindo arquitetura medallion: raw → dbt (staging/intermediate/marts) → exportação CSV.
 
-O código de ingestão vive no monorepo [`my_ingestion`](https://github.com/lksprado/my_ingestion) e a transformação no [`my_analytics`](https://github.com/lksprado/my_analytics); este repo só orquestra. Os dois **não** são submódulos: em dev entram por volume do `~/workspace` (edita lá, o Airflow vê na hora) e em prod pelos commits fixados em `deploy/versions.txt`.
+O código de ingestão vive no monorepo [`my_ingestion`](https://github.com/lksprado/my_ingestion) e a transformação no [`my_analytics`](https://github.com/lksprado/my_analytics); este repo só orquestra. Os dois **não** são submódulos: em dev entram por volume do `~/workspace` (edita lá, o Airflow vê na hora) e em prod pelos commits fixados em `deploy/versions.txt`, embutidos na imagem.
 
 **UI:** http://localhost:8080 | **API:** http://localhost:8090
 
@@ -15,7 +15,8 @@ O código de ingestão vive no monorepo [`my_ingestion`](https://github.com/lksp
 | `include/utils/` | Helpers do lado Airflow (`db_interactors.py`) — carga via connection `postgres_dw` |
 | `dbt/my_analytics/` | Ponto de montagem do projeto dbt único (todos os domínios, inclusive demodados), fora do git |
 | `deploy/prod-dags.txt` | Allowlist de DAGs promovidas ao `atb` |
-| `deploy/versions.txt` | Commit exato do `my_ingestion` e do `my_analytics` que prod executa (`deploy/checkout_versions.sh` aplica) |
+| `deploy/versions.txt` | Commit exato do `my_ingestion` e do `my_analytics` que prod executa |
+| `deploy/deploy_prod.sh` + `deploy/prod/` | Monta o Airflow de prod nesta máquina e envia para `atb:/srv/airflow` |
 | `tests/` | Validação de importação e conexões |
 
 ## Configuração (dev × prod por variáveis de ambiente)
@@ -66,7 +67,15 @@ with source_dag("ranking_politicos", schedule="0 7 * * 1", tags=["demodados"]) a
 
 ### Prod (`atb`)
 
-O Airflow de produção é o `homelab/stacks/airflow` (Runtime 3.3-2). Quando uma DAG entrar em `deploy/prod-dags.txt`, o servidor precisa de: `.env` com `ENV=prod` + `DB__PROD__*` + segredos; `PYTHONPATH` igual ao do `Dockerfile` daqui; `deploy/checkout_versions.sh <destino>` para colocar `my_ingestion` e `my_analytics` nos commits de `deploy/versions.txt`, montados nos mesmos caminhos do container de dev; lake montado em `/usr/local/airflow/mylake`; imagem com **Python 3.12** (o default do 3.3-2 é 3.14 e o `my_ingestion` pina `<3.13`). Nada disso é automatizado ainda.
+O Airflow de produção é `/srv/airflow` no `atb`, com a mesma imagem do dev (Runtime 3.0-10, Python 3.12), UI em `http://100.82.7.107:8080`. Ele é **gerado** por `deploy/deploy_prod.sh`, que roda nesta máquina (o `my_ingestion` é privado e o `atb` não guarda credencial do GitHub):
+
+```bash
+deploy/deploy_prod.sh --dry-run            # monta e mostra o que mudaria no atb
+deploy/deploy_prod.sh                      # monta e envia (rsync --delete)
+ssh -t atb /srv/airflow/start.sh restart   # rebuild e restart (pede o sudo)
+```
+
+O script exige árvore limpa e `HEAD == origin/main`, leva só as DAGs de `deploy/prod-dags.txt`, troca o override/`.astro/config.yaml`/`start.sh` pelos de `deploy/prod/`, embute `my_ingestion` (`src/`) e `my_analytics` nos SHAs de `deploy/versions.txt` (com `dbt deps` do `package-lock.yml`) e grava `DEPLOYED.txt`. O `.env` de prod vive só no `atb` (modelo em `deploy/prod/.env.example`): banco `analytics_prod` no `postgres-dwh` da `homelab-net`, Selenium próprio do projeto. O lake são os buckets do SeaweedFS montados por FUSE em `/srv/lake` (serviço `seaweedfs-mount` do homelab).
 
 ## Validação das DAGs
 

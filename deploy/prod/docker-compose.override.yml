@@ -1,0 +1,61 @@
+name: airflow
+# Só para prod (atb). O deploy/deploy_prod.sh põe este arquivo no lugar do
+# docker-compose.override.yml de dev. O código do my_ingestion e do my_analytics
+# vai dentro da imagem (nada de bind mount de código); só o lake é montado.
+#
+# ${BIND_IP} e ${AIRFLOW_PORT} são interpolados do ambiente do processo, não do
+# .env: suba sempre com ./start.sh.
+x-lake: &lake
+  # /srv/lake = buckets do SeaweedFS montados por FUSE (serviço seaweedfs-mount
+  # do homelab). rslave: se o mount do host for refeito, o container enxerga.
+  - /srv/lake:/usr/local/airflow/mylake:rslave
+
+services:
+  api-server:
+    ports: !override
+      - "${BIND_IP}:${AIRFLOW_PORT}:8080"
+    environment:
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS=False
+      - AIRFLOW__API__BASE_URL=http://${BIND_IP}:${AIRFLOW_PORT}
+    volumes:
+      - ./simple_auth_manager_passwords.json.generated:/usr/local/airflow/simple_auth_manager_passwords.json.generated
+    networks:
+      - default
+      - homelab-net
+
+  scheduler:
+    # root como em dev: as tasks gravam no lake com o dono que o FUSE mostrar.
+    user: root
+    environment:
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS=False
+      - AIRFLOW__API__BASE_URL=http://${BIND_IP}:${AIRFLOW_PORT}
+      - AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT=120
+    volumes: *lake
+    networks:
+      - default
+      - homelab-net
+
+  dag-processor:
+    user: root
+    environment:
+      - AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT=120
+    volumes: *lake
+    networks:
+      - default
+      - homelab-net
+
+  triggerer:
+    networks:
+      - default
+      - homelab-net
+
+  # Chrome remoto dos pipelines solar e fundos_imobiliarios
+  # (SELENIUM_REMOTE_URL=http://selenium:4444/wd/hub). Sem porta publicada.
+  selenium:
+    image: selenium/standalone-chrome:latest
+    shm_size: 2gb
+    restart: unless-stopped
+
+networks:
+  homelab-net:
+    external: true
