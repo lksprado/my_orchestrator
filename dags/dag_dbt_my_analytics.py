@@ -37,11 +37,11 @@ dag_dbt_my_analytics = DbtDag(
         "target": profile_config.target_name,
         "threads": 1,
     },
-    schedule=None,  # em validação, ver README (seção Validação dos pilotos); original "30 9 * * *"
+    schedule="30 9 * * *",
     start_date=datetime(2026, 9, 13),
     catchup=False,
-    dag_id="dag_dbt_my_analytics",
+    dag_id="dbt__build",
     default_args={"retries": 2},
-    tags=["dw", "demodados", "financas", "atibaia", "livros", "inflation", "nhl"],
+    tags=["datawarehouses"],
     max_active_tasks=2,
 )

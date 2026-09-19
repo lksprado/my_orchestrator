@@ -10,9 +10,9 @@ from pipelines.legislativo.camara.camara_etl import CONFIG_FILE, ETLS
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "camara_cadastro",
+    "camara__roster__ingestion",
     schedule=None,
-    tags=["demodados"],
+    tags=["politics"],
     description="Câmara: ids dos deputados atuais, perfis e legislaturas",
 ) as dag:
 

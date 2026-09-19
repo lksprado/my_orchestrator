@@ -10,9 +10,9 @@ from pipelines.legislativo.radar_congresso.radar_congresso_etl import CONFIG_FIL
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "radar_congresso",
+    "radar_congresso__governism__ingestion",
     schedule="@weekly",
-    tags=["demodados"],
+    tags=["politics"],
     description="Radar do Congresso: governismo de deputados e senadores, parlamentares",
 ) as dag:
     for entidade in ("governismo_deputados", "governismo_senadores", "parlamentares"):

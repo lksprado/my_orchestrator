@@ -12,9 +12,9 @@ from pipelines.legislativo.senado.senado_etl import CONFIG_FILE, ETLS
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "senado",
+    "senado__bills__ingestion",
     schedule="30 2 1 * *",
-    tags=["demodados"],
+    tags=["politics"],
     description="Senado: votações (2001 em diante), votos, orientações e processos",
     max_active_tasks=2,
 ) as dag:

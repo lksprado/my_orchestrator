@@ -10,9 +10,9 @@ from pipelines.legislativo.ecidadania.ecidadania_etl import CONFIG_FILE, ETLS
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "ecidadania_paginas",
+    "ecidadania__pages__ingestion",
     schedule="30 6 20 * *",
-    tags=["demodados"],
+    tags=["politics"],
     description="e-Cidadania: páginas de consultas públicas",
 ) as dag:
     etl_group(CONFIG_FILE, ETLS, "paginas")

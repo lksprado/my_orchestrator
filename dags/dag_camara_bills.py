@@ -11,9 +11,9 @@ from pipelines.legislativo.camara.camara_etl import CONFIG_FILE, ETLS
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "camara",
+    "camara__bills__ingestion",
     schedule="30 2 * * 1",
-    tags=["demodados"],
+    tags=["politics"],
     description="Câmara: votações, votos, orientações e proposições",
     max_active_tasks=2,
 ) as dag:

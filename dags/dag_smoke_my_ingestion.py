@@ -1,10 +1,5 @@
-"""Smoke test do wiring com o my_ingestion e o my_analytics.
-
-Roda à mão (schedule=None) em dev e em prod: confere que core/settings/pipelines
-importam do PYTHONPATH, que o .env chegou ao container (ENV, LAKE_ROOT,
-SEEDS_ROOT, DB__<ENV>__*), que o banco do ambiente responde e que o projeto dbt
-está montado. Loga as versões de pandas/sqlalchemy (pinadas abaixo do que o
-my_ingestion usa no venv dele).
+"""
+Smoke test do wiring com o my_ingestion e o my_analytics.
 """
 
 import logging
@@ -20,7 +15,7 @@ DBT_PROJECT = Path("/usr/local/airflow/dbt/my_analytics/dbt_project.yml")
 
 @dag(
     dag_id="smoke_my_ingestion",
-    schedule=None,
+    schedule="@hourly",
     start_date=datetime(2026, 9, 13),
     catchup=False,
     default_args={"retries": 2},
@@ -29,11 +24,10 @@ DBT_PROJECT = Path("/usr/local/airflow/dbt/my_analytics/dbt_project.yml")
 def smoke_my_ingestion():
     @task
     def check_imports_and_settings() -> dict:
-        import pandas
-        import sqlalchemy
-
         import core
+        import pandas
         import pipelines
+        import sqlalchemy
         from settings import settings
 
         info = {

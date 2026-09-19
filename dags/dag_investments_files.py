@@ -11,9 +11,9 @@ from pipelines.financas.investimentos.investimentos_etl import CONFIG_FILE, ETLS
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "investimentos_arquivos",
+    "investments__portfolio__ingestion",
     schedule=None,
-    tags=["financas"],
+    tags=["finances"],
     description="Investimentos: arquivos da B3 e da Avenue para raw_b3 e raw_avenue",
 ) as dag:
     etl_group(CONFIG_FILE, ETLS, "b3")

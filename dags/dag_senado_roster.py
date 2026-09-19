@@ -8,9 +8,9 @@ from pipelines.legislativo.senado.senado_etl import CONFIG_FILE, ETLS
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "senado_cadastro",
+    "senado__roster__ingestion",
     schedule=None,
-    tags=["demodados"],
+    tags=["politics"],
     description="Senado: senadores atuais e legislaturas",
 ) as dag:
     etl_group(CONFIG_FILE, ETLS, "legislaturas")

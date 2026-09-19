@@ -11,15 +11,15 @@ from datetime import datetime, timedelta
 
 from airflow.decorators import dag, task
 from airflow.providers.http.sensors.http import HttpSensor
-
 from core import build_etl
 from core.incremental import read_dates_csv
+from pipelines.clima.openweather.openweather_etl import CONFIG_FILE, ETLS
+
 from include.utils.db_interactors import (
     execute_query,
     move_files_after_loading,
     send_csv_df_to_db,
 )
-from pipelines.clima.openweather.openweather_etl import CONFIG_FILE, ETLS
 
 ENTIDADE = "daily"
 STG_TABLE = "raw_openweather.stg_openweather_daily"
@@ -76,7 +76,7 @@ def _etl():
 
 
 @dag(
-    dag_id="weather_etl",
+    dag_id="openweather__weather__ingestion",
     default_args=default_args,
     description="ETL for Weather Data",
     start_date=datetime(2025, 9, 21),
