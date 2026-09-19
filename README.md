@@ -75,7 +75,7 @@ deploy/deploy_prod.sh                      # monta e envia (rsync --delete)
 ssh -t atb /srv/airflow/start.sh restart   # rebuild e restart (pede o sudo)
 ```
 
-O script exige árvore limpa e `HEAD == origin/main`, leva só as DAGs de `deploy/prod-dags.txt`, troca o override/`.astro/config.yaml`/`start.sh` pelos de `deploy/prod/`, embute `my_ingestion` (`src/`) e `my_analytics` nos SHAs de `deploy/versions.txt` (com `dbt deps` do `package-lock.yml`) e grava `DEPLOYED.txt`. O `.env` de prod vive só no `atb` (modelo em `deploy/prod/.env.example`): banco `analytics_prod` no `postgres-dwh` da `homelab-net`, Selenium próprio do projeto. O lake são os buckets do SeaweedFS montados por FUSE em `/srv/lake` (serviço `seaweedfs-mount` do homelab).
+O script exige árvore limpa e `HEAD == origin/main`, leva só as DAGs de `deploy/prod-dags.txt`, troca o override/`.astro/config.yaml`/`start.sh` pelos de `deploy/prod/`, embute `my_ingestion` (`src/`) e `my_analytics` nos SHAs de `deploy/versions.txt` (com `dbt deps` do `package-lock.yml`) e grava `DEPLOYED.txt`. O `.env` de prod vive só no `atb` (modelo em `deploy/prod/.env.example`): banco `analytics_prod` no `postgres-dwh` da `homelab-net`, Selenium próprio do projeto. O lake são os buckets do SeaweedFS montados por FUSE em `/srv/lake/buckets` (serviço `seaweedfs-mount` do homelab).
 
 ## Validação das DAGs
 

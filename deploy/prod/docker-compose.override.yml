@@ -6,9 +6,10 @@ name: airflow
 # ${BIND_IP} e ${AIRFLOW_PORT} são interpolados do ambiente do processo, não do
 # .env: suba sempre com ./start.sh.
 x-lake: &lake
-  # /srv/lake = buckets do SeaweedFS montados por FUSE (serviço seaweedfs-mount
-  # do homelab). rslave: se o mount do host for refeito, o container enxerga.
-  - /srv/lake:/usr/local/airflow/mylake:rslave
+  # /srv/lake/buckets = buckets do SeaweedFS montados por FUSE (serviço seaweedfs-mount
+  # do homelab). Se o seaweedfs-mount reiniciar, reinicie o Airflow: o bind
+  # guarda o mount antigo.
+  - /srv/lake/buckets:/usr/local/airflow/mylake:rslave
 
 services:
   api-server:
