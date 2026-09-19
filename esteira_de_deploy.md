@@ -13,7 +13,7 @@ aprovado já é a publicação. Não existe SHA fixado, comando de deploy nem re
 | Repositório | O que tem | Branch que vai para prod |
 |---|---|---|
 | `my_ingestion` | extração e transformação das fontes (`src/pipelines/<domínio>/<fonte>/`) e a carga nas tabelas `raw_*` | `main` |
-| `my_analytics` | projeto dbt (staging → intermediate → marts) | `master` |
+| `my_analytics` | projeto dbt (staging → intermediate → marts) | `main` |
 | `my_orchestrator` | DAGs, `Dockerfile`, `requirements.txt`, allowlist, scripts e o workflow de deploy | `main` |
 | `homelab` | infra do atb: Postgres, SeaweedFS (lake), observabilidade | `main` (runner do homelab) |
 
@@ -119,7 +119,7 @@ Exemplo: uma fonte `exemplo` no domínio `legislativo`, com uma entidade `itens`
    - `models/intermediate/<dominio>/int_x.sql` → `intermediate_<dominio>`
    - `models/marts/<dominio>/mrt_x.sql` → `marts_<dominio>`
 3. Rode em dev: `cd ~/workspace/my_analytics && uv run dbt build --select stg_exemplo_itens+` e confira no `analytics_dev`.
-4. Commit, PR e merge na `master`. O merge já publica em prod.
+4. Commit, PR e merge na `main`. O merge já publica em prod.
 
 Não é preciso mexer em DAG para o dbt: o `dag_dbt_my_analytics` (Cosmos) lê o projeto inteiro e
 cria as tasks dos models novos sozinho. Mas ele está com `schedule=None` em prod: models novos só

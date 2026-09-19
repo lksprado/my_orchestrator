@@ -66,7 +66,7 @@ with source_dag("ranking_politicos", schedule="0 7 * * 1", tags=["demodados"]) a
 
 ### Prod (`atb`)
 
-O Airflow de produção é `/srv/airflow` no `atb`, com a mesma imagem do dev (Runtime 3.0-10, Python 3.12), UI em `http://100.82.7.107:8080`. **A branch principal é produção:** todo merge de PR aprovado no `my_orchestrator` (`main`), no `my_ingestion` (`main`) ou no `my_analytics` (`master`) dispara o workflow `.github/workflows/deploy.yml`, que roda no self-hosted runner do `atb` (label `atb-airflow`) e publica a ponta dos três repos. Não há SHA fixado nem comando manual; o passo a passo está em [`esteira_de_deploy.md`](esteira_de_deploy.md).
+O Airflow de produção é `/srv/airflow` no `atb`, com a mesma imagem do dev (Runtime 3.0-10, Python 3.12), UI em `http://100.82.7.107:8080`. **A branch principal é produção:** todo merge de PR aprovado no `my_orchestrator` (`main`), no `my_ingestion` (`main`) ou no `my_analytics` (`main`) dispara o workflow `.github/workflows/deploy.yml`, que roda no self-hosted runner do `atb` (label `atb-airflow`) e publica a ponta dos três repos. Não há SHA fixado nem comando manual; o passo a passo está em [`esteira_de_deploy.md`](esteira_de_deploy.md).
 
 O workflow faz checkout dos três repos, roda `deploy/build_prod.sh` (só as DAGs de `deploy/prod-dags.txt`, os arquivos de `deploy/prod/` no lugar dos de dev, `my_ingestion` `src/` e `my_analytics` nos caminhos da imagem, `DEPLOYED.txt`, `rsync --delete` para `/srv/airflow`), depois `/srv/airflow/start.sh restart` (rebuild; o `dbt deps` roda no `Dockerfile`) e por fim `deploy/verify_prod.sh` (0 import errors, número de DAGs igual à allowlist, nada em `0.0.0.0`). Para republicar sem commit (ex.: depois de mudar o `.env`): *Actions → Deploy prod → Run workflow*.
 
