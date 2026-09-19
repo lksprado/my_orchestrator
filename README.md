@@ -45,7 +45,7 @@ with source_dag("ranking_politicos", schedule="0 7 * * 1", tags=["demodados"]) a
 - Nasce com `schedule=None` e só ganha agendamento depois de validada em dev.
 - O arquivo precisa conter as palavras "airflow" e "dag"; sem elas o Airflow o ignora em silêncio.
 - Credenciais vêm do `.env` via `settings`, nunca de `Variable.get`.
-- Para ir a produção, o arquivo entra em `deploy/prod-dags.txt`. O que não está lá fica só em dev.
+- Prod carrega as mesmas DAGs que dev: tudo de `dags/`, menos o `.airflowignore` (que vale nos dois).
 
 Passo a passo completo (fonte, model e DAG nova até prod): [`esteira_de_deploy.md`](esteira_de_deploy.md).
 
@@ -55,9 +55,8 @@ Passo a passo completo (fonte, model e DAG nova até prod): [`esteira_de_deploy.
 
 ### Ao abrir o PR
 
-O workflow `PR` (`.github/workflows/pr.yml`) confere três coisas:
+O workflow `PR` (`.github/workflows/pr.yml`) confere duas coisas:
 
-- toda DAG listada em `deploy/prod-dags.txt` existe;
 - as DAGs e o `include/utils` compilam;
 - os scripts de `deploy/` têm sintaxe válida.
 
@@ -74,12 +73,12 @@ O workflow **Deploy prod** roda no runner `atb-airflow`, dentro do atb:
 | O que mudou | O que acontece |
 |---|---|
 | só `.md` ou `docs/` | nada, nem dispara |
-| DAG, `prod-dags.txt`, `include/` | só rsync; entra em até 1 min, sem queda |
+| DAG, `include/` | só rsync; entra em até 1 min, sem queda |
 | `requirements.txt`, `Dockerfile`, `packages.txt`, `plugins/`, `deploy/prod/*` | **restart** (rebuild da imagem, ~3 min) |
 
 4. Confere o resultado:
    - 0 import errors;
-   - número de DAGs igual ao da allowlist;
+   - número de DAGs igual ao de arquivos em `dags/` fora do `.airflowignore`;
    - nenhuma porta aberta em `0.0.0.0`.
 
 Verde no Actions significa que o prod está atualizado. Vermelho manda e-mail.
