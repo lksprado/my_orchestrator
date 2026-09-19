@@ -10,9 +10,9 @@ from pipelines.financas.investimentos.investimentos_etl import CONFIG_FILE, ETLS
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "investimentos_google",
+    "investments__googlesheets__ingestion",
     schedule="0 3 * * *",
-    tags=["financas"],
+    tags=["finances"],
     description="Investimentos: planilhas do Google Sheets para raw_google_sheets",
 ) as dag:
     etl_group(CONFIG_FILE, ETLS, "google")

@@ -10,7 +10,7 @@ from pipelines.precos.atacadao.run import _PRODUCTS_CONFIG, _STORE_CONFIG, searc
 from include.utils.etl_dag import source_dag
 
 with source_dag(
-    "atacadao",
+    "atacadao__prices__ingestion",
     schedule="0 7 28 * *",
     tags=["inflation"],
     description="Atacadão: preços da cesta pessoal",

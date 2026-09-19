@@ -10,9 +10,9 @@ from pipelines.livros.vide_editorial.vide_editorial_etl import CONFIG_FILE, ETLS
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "vide_editorial_categorias",
+    "vide__pages__ingestion",
     schedule="0 7 * * 5",
-    tags=["livros"],
+    tags=["books"],
     description="Vide Editorial: páginas de categorias",
 ) as dag:
     etl_group(CONFIG_FILE, ETLS, "categorias")

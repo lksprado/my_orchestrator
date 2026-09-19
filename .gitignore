@@ -10,6 +10,7 @@ webserver_config.py
 airflow.cfg
 airflow.db
 .como_utilizar.md
+.vscode/
 # Pontos de montagem dos repos do workspace (docker-compose.override.yml em dev,
 # git archive do deploy/build_prod.sh em prod). Nada é versionado aqui.
 include/my_ingestion/

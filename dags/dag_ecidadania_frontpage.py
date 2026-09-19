@@ -8,9 +8,9 @@ from pipelines.legislativo.ecidadania.ecidadania_etl import CONFIG_FILE, ETLS
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "ecidadania",
+    "ecidadania__frontpage__ingestion",
     schedule="0 5 * * *",
-    tags=["demodados"],
+    tags=["politics"],
     description="e-Cidadania: big numbers e mais votados",
 ) as dag:
     etl_group(CONFIG_FILE, ETLS, "bignumbers")

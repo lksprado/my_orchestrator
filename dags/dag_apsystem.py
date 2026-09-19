@@ -40,7 +40,7 @@ def _cfg(entidade: str) -> PipelineConfig:
 
 
 with source_dag(
-    "solar",
+    "apsystem__energy__ingestion",
     schedule="0 0 * * *",
     tags=["atibaia"],
     description="Energia solar: geração diária e horária",
@@ -68,21 +68,11 @@ with source_dag(
     def clear_staging():
         from settings import settings
 
-        move_files_after_loading(
-            _cfg("daily_energy").landing_dir, settings.lake_root / "bronze" / "solar_project"
-        )
+        move_files_after_loading(_cfg("daily_energy").landing_dir, settings.lake_root / "bronze" / "solar_project")
 
     @task
     def drop_staging():
         for entidade in UPSERT:
             execute_query(f"DROP TABLE IF EXISTS {SCHEMA}.stg_{_cfg(entidade).db_table};")
 
-    (
-        daily
-        >> hourly
-        >> has_bronze()
-        >> load_staging()
-        >> upsert_raw()
-        >> clear_staging()
-        >> drop_staging()
-    )
+    (daily >> hourly >> has_bronze() >> load_staging() >> upsert_raw() >> clear_staging() >> drop_staging())

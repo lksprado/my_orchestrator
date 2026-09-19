@@ -8,9 +8,9 @@ from pipelines.legislativo.ranking_politicos.ranking_politicos_etl import CONFIG
 from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
-    "ranking_politicos",
+    "ranking_politicos__legislators__ingestion",
     schedule="0 7 * * 1",
-    tags=["demodados"],
+    tags=["politics"],
     description="Ranking dos Políticos: deputados e senadores",
 ) as dag:
     etl_group(CONFIG_FILE, ETLS, "deputados")
