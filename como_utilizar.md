@@ -49,7 +49,7 @@ Passo a passo completo (fonte nova no my_ingestion, model no my_analytics, DAG n
 acompanhar o deploy): [`esteira_de_deploy.md`](esteira_de_deploy.md).
 
 Não existe comando de deploy. Todo merge de PR na `main` do `my_orchestrator`, na `main` do
-`my_ingestion` ou na `master` do `my_analytics` dispara o workflow **Deploy prod**, que roda no
+`my_ingestion` ou na `main` do `my_analytics` dispara o workflow **Deploy prod**, que roda no
 runner do `atb` e publica a ponta dos três repos (só as DAGs de `deploy/prod-dags.txt`).
 
 1. Branch, commit, PR (a `main` é protegida; você aprova e faz o merge):
