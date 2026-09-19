@@ -18,13 +18,29 @@ scheduler=$(sudo docker ps -q \
     --filter "label=com.docker.compose.service=scheduler")
 [[ -n "$scheduler" ]] || { echo "erro: scheduler de $projeto não está rodando" >&2; exit 1; }
 
-airflow() { sudo docker exec "$scheduler" airflow "$@"; }
+# Consulta direto no banco de metadados. O CLI (airflow dags list -o json) não
+# serve: ele escreve avisos de log no stdout antes do JSON. Só a última linha,
+# prefixada com RESULTADO, é lida.
+consulta='
+from airflow.models.dag import DagModel
+from airflow.models.errors import ParseImportError
+from airflow.utils.session import create_session
+with create_session() as s:
+    dags = s.query(DagModel).filter(DagModel.is_stale.is_(False)).count()
+    erros = s.query(ParseImportError).all()
+    print("RESULTADO", dags, len(erros))
+    for e in erros:
+        print("IMPORT_ERROR", e.filename, (e.stacktrace or "").strip().splitlines()[-1:])
+'
+consultar() { sudo docker exec "$scheduler" python -c "$consulta" 2>/dev/null || true; }
 
 # O dag-processor leva alguns segundos para parsear tudo depois do restart, e
 # import errors antigos só somem quando o arquivo é reparseado: espera até 3 min.
+total="?"; erros="?"
 for tentativa in $(seq 1 18); do
-    erros=$(airflow dags list-import-errors -o json 2>/dev/null | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo "?")
-    total=$(airflow dags list -o json 2>/dev/null | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' 2>/dev/null || echo "?")
+    saida=$(consultar)
+    read -r _ total erros < <(grep '^RESULTADO ' <<<"$saida" | tail -1) || true
+    total=${total:-?}; erros=${erros:-?}
     echo "tentativa $tentativa: $total DAGs (esperadas $esperadas), $erros import errors"
     [[ "$erros" == "0" && "$total" == "$esperadas" ]] && break
     sleep 10
@@ -32,7 +48,7 @@ done
 
 if [[ "$erros" != "0" ]]; then
     echo "erro: import errors no Airflow de prod" >&2
-    airflow dags list-import-errors >&2 || true
+    grep '^IMPORT_ERROR ' <<<"$saida" >&2 || true
     exit 1
 fi
 [[ "$total" == "$esperadas" ]] || { echo "erro: $total DAGs carregadas, esperadas $esperadas" >&2; exit 1; }
