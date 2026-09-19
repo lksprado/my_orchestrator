@@ -12,5 +12,5 @@
 # (/usr/local/airflow/include/my_ingestion/src e /usr/local/airflow/dbt/my_analytics).
 #
 # Formato: nome sha url
-my_ingestion b3c79f3e4270d8ca6e60fca97f108a93f581c722 https://github.com/lksprado/my_ingestion.git
+my_ingestion 514ce4bc613206775e6f9d1c38e5b9e86207928e https://github.com/lksprado/my_ingestion.git
 my_analytics dcd5d684f489f0e97057fd21fd116d68ac1830bd https://github.com/lksprado/my_analytics.git
