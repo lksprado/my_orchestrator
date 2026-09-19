@@ -1,0 +1,9 @@
+# Instale uma vez por clone: pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # main é produção: toda mudança entra por branch + PR. A proteção de
+      # verdade é a do GitHub; este hook só avisa antes do commit.
+      - id: no-commit-to-branch
+        args: [--branch, main]
