@@ -3,7 +3,7 @@
 # REGRA: o deploy sincroniza para o prod SOMENTE as DAGs listadas abaixo.
 # Uma DAG nova nasce local por padrão — ninguém precisa lembrar de excluí-la.
 #
-# Promover = adicionar uma linha, em commit próprio, para ficar visível
+# Promover = adicionar uma linha, em PR próprio (a main é protegida), para ficar visível
 # no histórico e ser fácil de reverter.
 #
 # Regras de segurança:

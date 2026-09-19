@@ -3,7 +3,7 @@
 # REGRA: prod roda EXATAMENTE estes commits. Em dev o docker-compose.override.yml
 # monta o working tree de ~/workspace e este arquivo não é usado.
 #
-# Promover = trocar o SHA, em commit próprio, para ficar visível no histórico e
+# Promover = trocar o SHA, em PR próprio (a main é protegida), para ficar visível no histórico e
 # ser fácil de reverter. Pegue o SHA com:
 #   git -C ~/workspace/my_ingestion rev-parse origin/main
 #

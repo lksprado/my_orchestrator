@@ -45,19 +45,29 @@ include/my_ingestion") e rode `astro dev restart` para rebuildar.
 
 ## Prod: versões fixadas
 
-Prod executa exatamente os commits de `deploy/versions.txt`. Para promover uma versão nova,
-troque o SHA em commit próprio:
-```shell
-git -C ~/workspace/my_ingestion rev-parse origin/main   # SHA a promover
-# editar deploy/versions.txt
-git commit -m "chore(deploy): promove my_ingestion para <sha curto>" deploy/versions.txt
-```
-Depois do push, envie para o `atb` e reinicie (o segundo comando pede o sudo do servidor):
-```shell
-deploy/deploy_prod.sh
-ssh -t atb /srv/airflow/start.sh restart
-```
-Promover uma DAG é o mesmo fluxo: adicione o arquivo em `deploy/prod-dags.txt`, commit, push, deploy.
+Prod executa exatamente os commits de `deploy/versions.txt` e só as DAGs de
+`deploy/prod-dags.txt`. A `main` é protegida: toda mudança entra por PR, com aprovação manual.
+
+1. Branch e commit (um assunto por PR):
+   ```shell
+   git checkout -b chore/promove-my-ingestion-<sha curto>
+   git -C ~/workspace/my_ingestion rev-parse origin/main   # SHA a promover
+   # editar deploy/versions.txt (ou adicionar a DAG em deploy/prod-dags.txt)
+   git commit -m "chore(deploy): promove my_ingestion para <sha curto>" deploy/versions.txt
+   git push -u origin HEAD
+   gh pr create --base main
+   ```
+2. Aprovar e fazer o merge no GitHub.
+3. Com a `main` local atualizada, enviar para o `atb` e reiniciar (o segundo comando pede o sudo do servidor):
+   ```shell
+   git checkout main && git pull
+   deploy/deploy_prod.sh              # --dry-run para ver antes o que muda
+   ssh -t atb /srv/airflow/start.sh restart
+   ```
+
+O `deploy_prod.sh` recusa rodar com alteração local ou com `HEAD` diferente de `origin/main`:
+o que vai para o `atb` é sempre código que passou por PR. Variável nova de ambiente vai à mão em
+`/srv/airflow/.env` (o deploy nunca toca nesse arquivo) e vale depois do `restart`.
 
 ## Sem submódulos
 
