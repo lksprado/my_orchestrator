@@ -33,6 +33,7 @@ git fetch --quiet origin main
     || { echo "erro: HEAD difere de origin/main (dê push ou atualize)" >&2; exit 1; }
 
 build=$(mktemp -d "${TMPDIR:-/tmp}/airflow-prod.XXXXXX")
+chmod 755 "$build"  # o rsync -a leva o 700 do mktemp para /srv/airflow
 $dry_run || trap 'rm -rf "$build"' EXIT
 
 # 2. Este repo, só o que está versionado.
