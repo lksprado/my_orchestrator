@@ -14,7 +14,7 @@ aprovado já é a publicação. Não existe SHA fixado, comando de deploy nem re
 |---|---|---|
 | `my_ingestion` | extração e transformação das fontes (`src/pipelines/<domínio>/<fonte>/`) e a carga nas tabelas `raw_*` | `main` |
 | `my_analytics` | projeto dbt (staging → intermediate → marts) | `main` |
-| `my_orchestrator` | DAGs, `Dockerfile`, `requirements.txt`, allowlist, scripts e o workflow de deploy | `main` |
+| `my_orchestrator` | DAGs, `Dockerfile`, `requirements.txt`, scripts e o workflow de deploy | `main` |
 | `homelab` | infra do atb: Postgres, SeaweedFS (lake), observabilidade | `main` (runner do homelab) |
 
 Quem faz o deploy é o workflow **Deploy prod** (`.github/workflows/deploy.yml` do `my_orchestrator`),
@@ -29,7 +29,7 @@ Os dois ambientes:
 |---|---|---|
 | Airflow | `~/workspace/my_orchestrator`, `astro dev start`, http://localhost:8090 | `/srv/airflow`, http://100.82.7.107:8080 |
 | Código do `my_ingestion` / `my_analytics` | **working tree** de `~/workspace/...`, montado ao vivo | **ponta da branch principal**, embutida na imagem a cada merge |
-| DAGs | todas as de `dags/` (menos o `.airflowignore`) | só as de `deploy/prod-dags.txt` |
+| DAGs | todas as de `dags/` (menos o `.airflowignore`) | as mesmas de dev |
 | Banco | `analytics_dev` (localhost:5435) | `analytics_prod` (`postgres-dwh`, 100.82.7.107:5432) |
 | Lake | `/media/lucas/Files/2.Projetos/0.mylake` | buckets do SeaweedFS em `/srv/lake/buckets` |
 | Configuração | `~/workspace/my_orchestrator/.env` | `/srv/airflow/.env` (só no servidor) |
@@ -75,7 +75,7 @@ estão em prod.
 | Mudança | O que o deploy faz |
 |---|---|
 | só `.md` / `docs/` | nem dispara |
-| DAG nova ou alterada, `prod-dags.txt` | rsync + verificação (sem queda) |
+| DAG nova, alterada, renomeada ou apagada | rsync + verificação (sem queda) |
 | código do `my_ingestion` (`src/`) | rsync + verificação (sem queda) |
 | model, macro, seed do `my_analytics` | rsync + verificação (sem queda) |
 | pacote dbt novo (`package-lock.yml`) | rsync + `dbt deps` no scheduler + verificação (sem queda) |
@@ -168,9 +168,7 @@ rodam quando alguém dispara essa DAG, ou quando ela ganhar um schedule.
    docker exec $(docker ps -qf name=scheduler) bash -c 'cd /usr/local/airflow && pytest -q tests/dags/'
    ```
 3. Passou? Troque `schedule=None` pelo cron de verdade.
-4. Um PR no `my_orchestrator`, com duas mudanças:
-   - `dags/dag_exemplo.py`;
-   - a linha `dag_exemplo.py` em `deploy/prod-dags.txt`.
+4. Um PR no `my_orchestrator` com `dags/dag_exemplo.py`.
 
    **Só faça o merge depois que o PR do `my_ingestion` estiver mergeado** (seção 2, "Ordem entre repos").
 5. Credencial nova? Coloque no servidor **antes** do merge (o deploy nunca toca no `.env`):
@@ -192,7 +190,7 @@ gh run watch                                   # segue até terminar (~30 s sem 
 ```
 
 Ou pelo navegador: *GitHub → my_orchestrator → Actions → Deploy prod*. O último passo
-(`verify_prod.sh`) só fica verde com 0 import errors e o número de DAGs igual ao da allowlist.
+(`verify_prod.sh`) só fica verde com 0 import errors e o número de DAGs igual ao de arquivos em `dags/` fora do `.airflowignore`.
 
 ### 3.5 Conferir em prod
 
@@ -239,8 +237,7 @@ A DAG `smoke_my_ingestion` (manual) confirma o ambiente pelo lado de dentro: o l
 | Corrigir um pipeline que já existe | PR no `my_ingestion` | sim, no merge |
 | Mudar ou criar model dbt | PR no `my_analytics` | sim, no merge |
 | Mudar schedule ou lógica de uma DAG | PR no `my_orchestrator` | sim, no merge |
-| Levar uma DAG que já existe ao prod | linha nova em `deploy/prod-dags.txt` (PR) | sim, no merge |
-| Tirar uma DAG do prod | apagar a linha em `deploy/prod-dags.txt` (PR); o deploy remove o arquivo do atb | sim, no merge |
+| Tirar uma DAG de dev e prod sem apagar o arquivo | linha em `dags/.airflowignore` (PR) | sim, no merge |
 | Mudar senha ou credencial | `/srv/airflow/.env` no atb | *Run workflow* no Deploy prod (detecta o `.env` alterado e reinicia) |
 | Pausar ou despausar | toggle na UI | não |
 | Voltar uma versão | `git revert` do commit via PR no repo que quebrou | sim, no merge |
@@ -249,8 +246,8 @@ A DAG `smoke_my_ingestion` (manual) confirma o ambiente pelo lado de dentro: o l
 
 ## 6. Regras e armadilhas
 
-- **Dados sensíveis ficam só em dev.** As DAGs financeiras (`investimentos_*`) não estão na allowlist,
-  e o prod não tem as credenciais delas. Não promova sem decidir isso conscientemente.
+- **Prod = dev.** Toda DAG em `dags/` fora do `.airflowignore` vai para o prod no merge, inclusive as
+  financeiras (`investments_*`). Sem as credenciais no `.env` do atb, elas falham na execução.
 - **Credencial nova sem `.env` no atb** = a DAG quebra na importação (`settings` valida no import) ou
   na execução. Crie a variável antes do merge.
 - **Deploy vermelho** = prod ficou com o código novo, mas com problema (import error, DAG faltando).
@@ -275,7 +272,6 @@ A DAG `smoke_my_ingestion` (manual) confirma o ambiente pelo lado de dentro: o l
 | Workflow de deploy | `my_orchestrator/.github/workflows/deploy.yml` (runner `atb-airflow`) |
 | Gatilhos dos outros repos | `.github/workflows/deploy-prod.yml` no `my_ingestion` e no `my_analytics` |
 | Scripts chamados pelo workflow | `my_orchestrator/deploy/build_prod.sh` e `deploy/verify_prod.sh` |
-| Allowlist de DAGs de prod | `my_orchestrator/deploy/prod-dags.txt` |
 | Arquivos só de prod (override, `start.sh`, modelo de `.env`) | `my_orchestrator/deploy/prod/` |
 | O que está no ar | `atb:/srv/airflow/DEPLOYED.txt` |
 | `.env` de prod | `atb:/srv/airflow/.env` |

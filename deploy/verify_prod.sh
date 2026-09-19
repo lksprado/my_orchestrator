@@ -5,13 +5,14 @@
 #   deploy/verify_prod.sh [diretório do projeto]     padrão: /srv/airflow
 #
 # Falha se: o scheduler não está de pé, há import error, o número de DAGs difere
-# da allowlist, ou alguma porta está publicada em 0.0.0.0 (regra de ouro do homelab).
+# do de arquivos em dags/ fora do .airflowignore (pega arquivo pulado em silêncio)
+# ou alguma porta está publicada em 0.0.0.0 (regra de ouro do homelab).
 
 set -euo pipefail
 
 projeto=${1:-/srv/airflow}
-repo=$(cd "$(dirname "$0")/.." && pwd)
-esperadas=$(grep -cvE '^\s*(#|$)' "$repo/deploy/prod-dags.txt")
+esperadas=$(find "$projeto/dags" -maxdepth 1 -name '*.py' -printf '%f\n' \
+    | grep -cvxFf <(grep -vE '^\s*(#|$)' "$projeto/dags/.airflowignore") || true)
 
 scheduler=$(sudo docker ps -q \
     --filter "label=com.docker.compose.project.working_dir=$projeto" \

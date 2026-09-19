@@ -12,7 +12,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "investments__portfolio__ingestion",
-    schedule=None,
+    schedule="0 7 5 * *",
     tags=["finances"],
     description="Investimentos: arquivos da B3 e da Avenue para raw_b3 e raw_avenue",
 ) as dag:

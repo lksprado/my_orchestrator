@@ -11,7 +11,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "investments__googlesheets__ingestion",
-    schedule="0 3 * * *",
+    schedule="*/15 * * * *",
     tags=["finances"],
     description="Investimentos: planilhas do Google Sheets para raw_google_sheets",
 ) as dag:

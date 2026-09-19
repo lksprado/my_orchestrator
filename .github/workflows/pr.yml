@@ -16,14 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Allowlist aponta para DAGs existentes
-        run: |
-          falta=0
-          while read -r f; do
-            [ -f "dags/$f" ] || { echo "::error file=deploy/prod-dags.txt::$f não existe em dags/"; falta=1; }
-          done < <(grep -vE '^\s*(#|$)' deploy/prod-dags.txt)
-          exit $falta
-
       - name: Sintaxe das DAGs e scripts
         run: |
           python3 -m py_compile dags/*.py include/utils/*.py

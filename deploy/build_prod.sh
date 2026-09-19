@@ -9,7 +9,7 @@
 # O repo my_orchestrator é o que contém este script. O destino padrão é
 # /srv/airflow/. O que vai para lá:
 #   - este repo no HEAD (só o que está versionado);
-#   - de dags/, só os arquivos de deploy/prod-dags.txt;
+#   - dags/ inteiro, como em dev (o .airflowignore vale nos dois);
 #   - deploy/prod/* no lugar do override de dev, do .astro/config.yaml e do start.sh;
 #   - my_ingestion (só src/) em include/my_ingestion/src e my_analytics em
 #     dbt/my_analytics (os pacotes dbt são instalados pelo passo "dbt deps" do
@@ -33,15 +33,7 @@ trap 'rm -rf "$build"' EXIT
 # 1. Este repo, só o que está versionado.
 git archive HEAD | tar -x -C "$build"
 
-# 2. DAGs da allowlist e arquivos de prod.
-mapfile -t permitidas < <(grep -vE '^\s*(#|$)' deploy/prod-dags.txt)
-for f in "${permitidas[@]}"; do
-    [[ -f "$build/dags/$f" ]] || { echo "erro: $f está em prod-dags.txt mas não existe em dags/" >&2; exit 1; }
-done
-for f in "$build"/dags/*.py; do
-    nome=$(basename "$f")
-    printf '%s\n' "${permitidas[@]}" | grep -qxF "$nome" || rm "$f"
-done
+# 2. Arquivos de prod.
 cp deploy/prod/docker-compose.override.yml "$build/docker-compose.override.yml"
 cp deploy/prod/config.yaml "$build/.astro/config.yaml"
 cp deploy/prod/start.sh "$build/start.sh"
@@ -57,13 +49,12 @@ curto() { git -C "$1" rev-parse --short HEAD; }
 cat > "$build/DEPLOYED.txt" <<EOF
 my_orchestrator $(curto "$repo") my_ingestion $(curto "$ingestion") my_analytics $(curto "$analytics")
 montado em $(date -Iseconds) por ${DEPLOY_ORIGEM:-execução manual}
-DAGs: ${permitidas[*]}
 EOF
 
-# 5. Sincroniza. --delete remove o que saiu da allowlist. Ficam de fora o que é
-# gerado no servidor: __pycache__ e dbt_packages/target/logs (o scheduler, root,
-# grava nos binds e o usuário do runner não consegue apagar) e os hashes do
-# deploy/estado.sh.
+# 5. Sincroniza. --delete remove o que saiu do repo (DAG apagada ou renomeada).
+# Ficam de fora o que é gerado no servidor: __pycache__ e dbt_packages/target/logs
+# (o scheduler, root, grava nos binds e o usuário do runner não consegue apagar) e
+# os hashes do deploy/estado.sh.
 rsync -a --delete --exclude=/.env --exclude=/simple_auth_manager_passwords.json.generated \
       --exclude=__pycache__/ --exclude='/.deploy-*.sha256' \
       --exclude=/dbt/my_analytics/dbt_packages/ --exclude=/dbt/my_analytics/target/ \
