@@ -45,6 +45,10 @@ include/my_ingestion") e rode `astro dev restart` para rebuildar.
 
 ## Prod: versões fixadas
 
+Passo a passo completo (fonte nova no my_ingestion, model no my_analytics, DAG nova, como
+conferir a versão em prod): [`esteira_de_deploy.md`](esteira_de_deploy.md).
+
+
 Prod executa exatamente os commits de `deploy/versions.txt` e só as DAGs de
 `deploy/prod-dags.txt`. A `main` é protegida: toda mudança entra por PR, com aprovação manual.
 
