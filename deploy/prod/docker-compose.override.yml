@@ -16,6 +16,10 @@ services:
   api-server:
     ports: !override
       - "${BIND_IP}:${AIRFLOW_PORT}:8080"
+      # O astro dev start/restart confere a saúde em http://localhost:<porta>; sem
+      # este bind ele sempre estoura o --wait e sai com erro, mesmo com tudo de pé.
+      # 127.0.0.1 não fere a regra de ouro (nada em 0.0.0.0).
+      - "127.0.0.1:${AIRFLOW_PORT}:8080"
     environment:
       - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS=False
       - AIRFLOW__API__BASE_URL=http://${BIND_IP}:${AIRFLOW_PORT}
