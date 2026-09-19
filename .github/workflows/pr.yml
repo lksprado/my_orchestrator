@@ -1,0 +1,30 @@
+name: PR
+
+# Checagem rápida antes do merge, no runner do GitHub (não alcança o atb).
+# Import errors de verdade só aparecem com o Airflow e o my_ingestion juntos:
+# quem pega é o deploy/verify_prod.sh, depois do merge.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Allowlist aponta para DAGs existentes
+        run: |
+          falta=0
+          while read -r f; do
+            [ -f "dags/$f" ] || { echo "::error file=deploy/prod-dags.txt::$f não existe em dags/"; falta=1; }
+          done < <(grep -vE '^\s*(#|$)' deploy/prod-dags.txt)
+          exit $falta
+
+      - name: Sintaxe das DAGs e scripts
+        run: |
+          python3 -m py_compile dags/*.py include/utils/*.py
+          bash -n deploy/*.sh deploy/prod/start.sh

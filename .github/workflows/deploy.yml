@@ -1,0 +1,65 @@
+name: Deploy prod
+
+# main é produção: todo merge aqui, no my_ingestion (main) ou no my_analytics
+# (master) publica a ponta dos três repos no Airflow do atb. Os outros dois repos
+# disparam este workflow por repository_dispatch (event_type: deploy).
+#
+# Roda no self-hosted runner do atb (label atb-airflow, usuário github-runner):
+# o atb só é alcançável pela Tailscale. Nada de credencial fica no servidor: o
+# my_ingestion (privado) é lido com o secret INGESTION_READ_TOKEN só durante o job.
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [deploy]
+  workflow_dispatch:
+
+run-name: >-
+  Deploy prod (${{ github.event_name == 'repository_dispatch'
+  && format('{0}@{1}', github.event.client_payload.repo, github.event.client_payload.sha)
+  || github.event_name }})
+
+concurrency:
+  group: deploy-airflow
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy no atb
+    runs-on: [self-hosted, atb-airflow]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout my_orchestrator
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: repos/my_orchestrator
+
+      - name: Checkout my_ingestion
+        uses: actions/checkout@v4
+        with:
+          repository: lksprado/my_ingestion
+          ref: main
+          token: ${{ secrets.INGESTION_READ_TOKEN }}
+          path: repos/my_ingestion
+
+      - name: Checkout my_analytics
+        uses: actions/checkout@v4
+        with:
+          repository: lksprado/my_analytics
+          ref: master
+          path: repos/my_analytics
+
+      - name: Montar /srv/airflow
+        env:
+          DEPLOY_ORIGEM: ${{ github.event_name }} (run ${{ github.run_id }})
+        run: repos/my_orchestrator/deploy/build_prod.sh repos/my_ingestion repos/my_analytics /srv/airflow/
+
+      - name: Rebuild e restart
+        run: /srv/airflow/start.sh restart --wait 5m
+
+      - name: Verificar
+        run: repos/my_orchestrator/deploy/verify_prod.sh /srv/airflow

@@ -1,5 +1,5 @@
 name: airflow
-# Só para prod (atb). O deploy/deploy_prod.sh põe este arquivo no lugar do
+# Só para prod (atb). O deploy/build_prod.sh põe este arquivo no lugar do
 # docker-compose.override.yml de dev. O código do my_ingestion e do my_analytics
 # vai dentro da imagem, e o Astro ainda monta dags/ e include/ de /srv/airflow;
 # este arquivo só acrescenta o lake.
