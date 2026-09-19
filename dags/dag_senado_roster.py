@@ -9,7 +9,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "senado__roster__ingestion",
-    schedule=None,
+    schedule="0 5 1 * *",
     tags=["politics"],
     description="Senado: senadores atuais e legislaturas",
 ) as dag:

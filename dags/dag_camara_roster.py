@@ -11,7 +11,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "camara__roster__ingestion",
-    schedule=None,
+    schedule="5 5 1 * *",
     tags=["politics"],
     description="Câmara: ids dos deputados atuais, perfis e legislaturas",
 ) as dag:

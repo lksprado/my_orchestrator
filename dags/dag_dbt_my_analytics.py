@@ -39,7 +39,6 @@ dag_dbt_my_analytics = DbtDag(
     },
     schedule="30 9 * * *",
     start_date=datetime(2026, 9, 13),
-    catchup=False,
     dag_id="dbt__build",
     default_args={"retries": 2},
     tags=["datawarehouses"],
