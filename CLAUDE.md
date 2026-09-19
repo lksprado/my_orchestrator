@@ -68,7 +68,7 @@ with source_dag("<fonte>", schedule="30 2 * * 1", tags=["<dominio>"]) as dag:
 - **Every DAG file must contain the words "airflow" and "dag"**: DagBag safe mode silently skips files without them. Factory-only files mention Airflow in the docstring. `tests/dags/test_etl_dag.py` fails if a non-ignored file yields no DAG.
 - Exceptions without raw load (atacadao, atacadao_historico, investimentos_fgc) call the my_ingestion function in a plain `@task`; `fundos_imobiliarios` runs `python -m ...run` via `BashOperator` because its logic lives in `__main__`. `load: none` sources (solar, weather) load in the DAG with `include/utils/db_interactors.py` + upsert SQL.
 - Credentials from `settings` (env), not `Variable.get`. No `setup_logger()` (Airflow configures the root logger).
-- New DAGs start with `schedule=None  # em validação...; original "<cron>"` and get the schedule only after passing validation (`airflow dags test <dag_id> --dagfile-path ...`, compared against the migrated copies in `analytics_dev`); results in README "Validação das DAGs".
+- New DAGs start with `schedule=None  # em validação...; original "<cron>"` and get the schedule only after passing validation (`airflow dags test <dag_id> --dagfile-path ...`, compared against the migrated copies in `analytics_dev`).
 - Table names are **aligned** with my_analytics since my_ingestion `b3c79f3`: sources the dbt already read load into those tables (`raw_camara.raw_camara_*`, `raw_senado.raw_senado_*`, `raw_apsystem`, `raw_vide_editora.vide_raw_home_featured`, `raw_google_sheets`). `raw_<fonte>.<entidade>` is only for new sources.
 
 ### Runtime requirements
