@@ -30,9 +30,7 @@
         "activityBarTop.background": "#5484ef",
         "activityBarTop.foreground": "#15202b",
         "activityBarTop.inactiveForeground": "#15202b99",
-        "commandCenter.foreground": "#e7e7e7",
-        "activityBar.activeBorder": "#15202b",
-        "activityBarTop.activeBorder": "#15202b"
+        "commandCenter.foreground": "#e7e7e7"
     },
     "peacock.color": "#2563eb",
     "dbt.perspectiveTheme": "Vintage"
