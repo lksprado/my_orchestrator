@@ -43,35 +43,27 @@ include/my_ingestion") e rode `astro dev restart` para rebuildar.
     'cd /usr/local/airflow && airflow dags test <dag_id> --dagfile-path /usr/local/airflow/dags/<arquivo>.py'
   ```
 
-## Prod: versões fixadas
+## Prod: a branch principal é produção
 
 Passo a passo completo (fonte nova no my_ingestion, model no my_analytics, DAG nova, como
-conferir a versão em prod): [`esteira_de_deploy.md`](esteira_de_deploy.md).
+acompanhar o deploy): [`esteira_de_deploy.md`](esteira_de_deploy.md).
 
+Não existe comando de deploy. Todo merge de PR na `main` do `my_orchestrator`, na `main` do
+`my_ingestion` ou na `master` do `my_analytics` dispara o workflow **Deploy prod**, que roda no
+runner do `atb` e publica a ponta dos três repos (só as DAGs de `deploy/prod-dags.txt`).
 
-Prod executa exatamente os commits de `deploy/versions.txt` e só as DAGs de
-`deploy/prod-dags.txt`. A `main` é protegida: toda mudança entra por PR, com aprovação manual.
-
-1. Branch e commit (um assunto por PR):
+1. Branch, commit, PR (a `main` é protegida; você aprova e faz o merge):
    ```shell
-   git checkout -b chore/promove-my-ingestion-<sha curto>
-   git -C ~/workspace/my_ingestion rev-parse origin/main   # SHA a promover
-   # editar deploy/versions.txt (ou adicionar a DAG em deploy/prod-dags.txt)
-   git commit -m "chore(deploy): promove my_ingestion para <sha curto>" deploy/versions.txt
+   git checkout -b feat/<assunto>
+   git commit -m "..."
    git push -u origin HEAD
    gh pr create --base main
    ```
-2. Aprovar e fazer o merge no GitHub.
-3. Com a `main` local atualizada, enviar para o `atb` e reiniciar (o segundo comando pede o sudo do servidor):
-   ```shell
-   git checkout main && git pull
-   deploy/deploy_prod.sh              # --dry-run para ver antes o que muda
-   ssh -t atb /srv/airflow/start.sh restart
-   ```
+2. Depois do merge, acompanhe em *Actions → Deploy prod* (`gh run watch` no `my_orchestrator`).
+3. O que está no ar: `ssh atb head -2 /srv/airflow/DEPLOYED.txt`.
 
-O `deploy_prod.sh` recusa rodar com alteração local ou com `HEAD` diferente de `origin/main`:
-o que vai para o `atb` é sempre código que passou por PR. Variável nova de ambiente vai à mão em
-`/srv/airflow/.env` (o deploy nunca toca nesse arquivo) e vale depois do `restart`.
+Variável nova de ambiente vai à mão em `/srv/airflow/.env` (o deploy nunca toca nesse arquivo);
+depois rode *Actions → Deploy prod → Run workflow* para reiniciar com ela.
 
 ## Sem submódulos
 
