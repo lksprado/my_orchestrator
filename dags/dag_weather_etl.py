@@ -90,10 +90,10 @@ def weather_etl():
         http_conn_id="openweather_conn",
         endpoint="data/3.0/onecall/day_summary",
         request_params={
-            "lat": -23.137,
-            "lon": -46.5547861,
+            # do .env (o settings do my_ingestion usa as mesmas variáveis)
+            "lat": os.environ.get("OPENWEATHER_LAT", ""),
+            "lon": os.environ.get("OPENWEATHER_LON", ""),
             "date": "{{ ds }}",
-            # do .env (settings.openweather_api_key usa a mesma variável)
             "appid": os.environ.get("OPENWEATHER_API_KEY", ""),
         },
         response_check=lambda response: response.status_code == 200,
