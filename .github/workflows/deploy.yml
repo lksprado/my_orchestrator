@@ -7,12 +7,23 @@ name: Deploy prod
 # Roda no self-hosted runner do atb (label atb-airflow, usuário github-runner):
 # o atb só é alcançável pela Tailscale. Nada de credencial fica no servidor: o
 # my_ingestion (privado) é lido com o secret INGESTION_READ_TOKEN só durante o job.
+#
+# O deploy normal é só rsync: DAGs, my_ingestion e dbt são lidos do disco pelos
+# binds. Restart (rebuild da imagem) só quando o deploy/estado.sh vê mudança em
+# imagem, config dos containers, plugins ou .env; dbt deps só quando muda o
+# package-lock.yml do my_analytics.
 on:
   push:
     branches: [main]
+    paths-ignore: ['**/*.md', 'docs/**']
   repository_dispatch:
     types: [deploy]
   workflow_dispatch:
+    inputs:
+      restart:
+        description: 'Forçar restart (rebuild) mesmo sem mudança detectada'
+        type: boolean
+        default: false
 
 run-name: >-
   Deploy prod (${{ github.event_name == 'repository_dispatch'
@@ -58,8 +69,42 @@ jobs:
           DEPLOY_ORIGEM: ${{ github.event_name }} (run ${{ github.run_id }})
         run: repos/my_orchestrator/deploy/build_prod.sh repos/my_ingestion repos/my_analytics /srv/airflow/
 
+      - name: Decidir restart e dbt deps
+        id: estado
+        env:
+          FORCAR: ${{ inputs.restart || false }}
+        run: |
+          estado=repos/my_orchestrator/deploy/estado.sh
+          restart=$($estado precisa restart)
+          [ "$FORCAR" = "true" ] && restart=true
+          deps=$($estado precisa dbt-deps)
+          echo "restart=$restart" >> "$GITHUB_OUTPUT"
+          echo "deps=$deps" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Deploy"
+            echo "- restart (rebuild): **$restart**$([ "$FORCAR" = "true" ] && echo ' (forçado)')"
+            echo "- dbt deps: **$deps**"
+            echo
+            head -2 /srv/airflow/DEPLOYED.txt | sed 's/^/    /'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "restart=$restart deps=$deps"
+
       - name: Rebuild e restart
-        run: /srv/airflow/start.sh restart --wait 5m
+        if: steps.estado.outputs.restart == 'true'
+        run: |
+          /srv/airflow/start.sh restart --wait 5m
+          repos/my_orchestrator/deploy/estado.sh gravar restart
+
+      - name: dbt deps
+        if: steps.estado.outputs.deps == 'true'
+        run: |
+          scheduler=$(sudo docker ps -q \
+            --filter label=com.docker.compose.project.working_dir=/srv/airflow \
+            --filter label=com.docker.compose.service=scheduler)
+          [ -n "$scheduler" ] || { echo "erro: scheduler não está rodando" >&2; exit 1; }
+          sudo docker exec "$scheduler" bash -c \
+            'cd /usr/local/airflow/dbt/my_analytics && /usr/local/airflow/dbt_venv/bin/dbt deps --project-dir . --profiles-dir . && rm -rf logs'
+          repos/my_orchestrator/deploy/estado.sh gravar dbt-deps
 
       - name: Verificar
         run: repos/my_orchestrator/deploy/verify_prod.sh /srv/airflow

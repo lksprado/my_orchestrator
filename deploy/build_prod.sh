@@ -12,7 +12,8 @@
 #   - de dags/, só os arquivos de deploy/prod-dags.txt;
 #   - deploy/prod/* no lugar do override de dev, do .astro/config.yaml e do start.sh;
 #   - my_ingestion (só src/) em include/my_ingestion/src e my_analytics em
-#     dbt/my_analytics. Os pacotes dbt são instalados no build da imagem (Dockerfile).
+#     dbt/my_analytics (os pacotes dbt são instalados pelo passo "dbt deps" do
+#     workflow, no próprio servidor).
 # O .env e o arquivo de senhas do Airflow no destino nunca são tocados.
 
 set -euo pipefail
@@ -59,10 +60,13 @@ montado em $(date -Iseconds) por ${DEPLOY_ORIGEM:-execução manual}
 DAGs: ${permitidas[*]}
 EOF
 
-# 5. Sincroniza. --delete remove o que saiu da allowlist. __pycache__ fica de
-# fora: o Astro monta dags/ e include/ nos containers e o scheduler (root) grava
-# ali arquivos que o usuário do runner não consegue apagar.
+# 5. Sincroniza. --delete remove o que saiu da allowlist. Ficam de fora o que é
+# gerado no servidor: __pycache__ e dbt_packages/target/logs (o scheduler, root,
+# grava nos binds e o usuário do runner não consegue apagar) e os hashes do
+# deploy/estado.sh.
 rsync -a --delete --exclude=/.env --exclude=/simple_auth_manager_passwords.json.generated \
-      --exclude=__pycache__/ "$build/" "$destino"
+      --exclude=__pycache__/ --exclude='/.deploy-*.sha256' \
+      --exclude=/dbt/my_analytics/dbt_packages/ --exclude=/dbt/my_analytics/target/ \
+      --exclude=/dbt/my_analytics/logs/ "$build/" "$destino"
 
 echo "publicado em $destino: $(head -1 "$build/DEPLOYED.txt")"

@@ -53,8 +53,8 @@ PR no repo (my_ingestion / my_analytics / my_orchestrator) → você aprova → 
         │
         ▼  automático
 Deploy prod no runner do atb:
-  checkout das 3 pontas → build_prod.sh (monta /srv/airflow)
-  → start.sh restart (rebuild da imagem) → verify_prod.sh
+  checkout das 3 pontas → build_prod.sh (rsync para /srv/airflow)
+  → restart só se precisar → dbt deps só se precisar → verify_prod.sh
         │
         ▼
 Actions verde = prod atualizado; conferir na UI e despausar a DAG nova
@@ -68,8 +68,25 @@ momento; se a DAG chegar antes do código, ela dá erro de importação e o depl
 Pelo mesmo motivo, uma mudança no `my_ingestion` tem que continuar funcionando com as DAGs que já
 estão em prod.
 
-**O restart derruba tarefas em execução.** Se alguma DAG longa estiver rodando, ela falha e
-tenta de novo pelos `retries`. Se isso importar, faça o merge fora do horário dela.
+**Quase todo deploy é só rsync.** Em prod, como em dev, o Airflow lê do disco as DAGs, o
+`my_ingestion` e o projeto dbt: o deploy copia os arquivos e o Airflow vê a mudança em até
+1 minuto, sem reiniciar. O `deploy/estado.sh` decide o resto:
+
+| Mudança | O que o deploy faz |
+|---|---|
+| só `.md` / `docs/` | nem dispara |
+| DAG nova ou alterada, `prod-dags.txt` | rsync + verificação (sem queda) |
+| código do `my_ingestion` (`src/`) | rsync + verificação (sem queda) |
+| model, macro, seed do `my_analytics` | rsync + verificação (sem queda) |
+| pacote dbt novo (`package-lock.yml`) | rsync + `dbt deps` no scheduler + verificação (sem queda) |
+| `requirements.txt`, `Dockerfile`, `packages.txt`, `deploy/prod/*`, `plugins/` | **restart** (rebuild da imagem, 1-2 min fora do ar) |
+| variável nova no `/srv/airflow/.env` | **restart**, no próximo deploy ou em *Run workflow* |
+
+O resumo de cada run no *Actions* mostra se houve restart e `dbt deps`. Para forçar um restart:
+*Run workflow* com a caixa **restart** marcada.
+
+**O restart derruba tarefas em execução** (elas tentam de novo pelos `retries`). Como ele só
+acontece com mudança de imagem, config ou `.env`, faça esses merges fora do horário das DAGs longas.
 
 ---
 
@@ -171,7 +188,7 @@ Não há nada a rodar. Acompanhe:
 ```bash
 cd ~/workspace/my_orchestrator
 gh run list --workflow deploy.yml --limit 3   # o run do merge aparece em segundos
-gh run watch                                   # segue até terminar (~3-5 min)
+gh run watch                                   # segue até terminar (~30 s sem restart; ~3 min com)
 ```
 
 Ou pelo navegador: *GitHub → my_orchestrator → Actions → Deploy prod*. O último passo
@@ -224,7 +241,7 @@ A DAG `smoke_my_ingestion` (manual) confirma o ambiente pelo lado de dentro: o l
 | Mudar schedule ou lógica de uma DAG | PR no `my_orchestrator` | sim, no merge |
 | Levar uma DAG que já existe ao prod | linha nova em `deploy/prod-dags.txt` (PR) | sim, no merge |
 | Tirar uma DAG do prod | apagar a linha em `deploy/prod-dags.txt` (PR); o deploy remove o arquivo do atb | sim, no merge |
-| Mudar senha ou credencial | `/srv/airflow/.env` no atb | *Run workflow* no Deploy prod (reinicia) |
+| Mudar senha ou credencial | `/srv/airflow/.env` no atb | *Run workflow* no Deploy prod (detecta o `.env` alterado e reinicia) |
 | Pausar ou despausar | toggle na UI | não |
 | Voltar uma versão | `git revert` do commit via PR no repo que quebrou | sim, no merge |
 
@@ -245,7 +262,7 @@ A DAG `smoke_my_ingestion` (manual) confirma o ambiente pelo lado de dentro: o l
 - **Rodando em dev e prod ao mesmo tempo**, cada fonte é consultada duas vezes. Os dados não se
   misturam (bancos e lakes separados), mas convém deixar agendada só uma das duas.
 - **Se o container `seaweedfs-mount` reiniciar**, reinicie o Airflow também (*Run workflow* no Deploy
-  prod): ele guarda o mount antigo do lake.
+  prod, com a caixa **restart** marcada): ele guarda o mount antigo do lake.
 - **`start.sh` falha com "/srv/lake/buckets não está montado"**: o serviço de mount do homelab está
   fora. Suba com `cd /srv/homelab && sudo docker compose --env-file stacks/seaweedfs/.env -f stacks/seaweedfs/docker-compose.yml up -d`.
 

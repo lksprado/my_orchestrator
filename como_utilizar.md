@@ -62,8 +62,12 @@ runner do `atb` e publica a ponta dos três repos (só as DAGs de `deploy/prod-d
 2. Depois do merge, acompanhe em *Actions → Deploy prod* (`gh run watch` no `my_orchestrator`).
 3. O que está no ar: `ssh atb head -2 /srv/airflow/DEPLOYED.txt`.
 
+O deploy normal é só `rsync`, sem reiniciar o Airflow: DAGs, `my_ingestion` e dbt são lidos do
+disco. Restart (rebuild) só acontece quando muda `requirements.txt`, `Dockerfile`, `packages.txt`,
+`deploy/prod/*`, `plugins/` ou o `.env`; o resumo do run no *Actions* diz se houve.
+
 Variável nova de ambiente vai à mão em `/srv/airflow/.env` (o deploy nunca toca nesse arquivo);
-depois rode *Actions → Deploy prod → Run workflow* para reiniciar com ela.
+depois rode *Actions → Deploy prod → Run workflow*: ele detecta o `.env` alterado e reinicia.
 
 ## Sem submódulos
 

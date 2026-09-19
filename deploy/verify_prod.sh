@@ -35,9 +35,9 @@ with create_session() as s:
 consultar() { sudo docker exec "$scheduler" python -c "$consulta" 2>/dev/null || true; }
 
 # O dag-processor leva alguns segundos para parsear tudo depois do restart, e
-# import errors antigos só somem quando o arquivo é reparseado: espera até 3 min.
+# import errors antigos só somem quando o arquivo é reparseado: espera até 5 min.
 total="?"; erros="?"
-for tentativa in $(seq 1 18); do
+for tentativa in $(seq 1 30); do
     saida=$(consultar)
     read -r _ total erros < <(grep '^RESULTADO ' <<<"$saida" | tail -1) || true
     total=${total:-?}; erros=${erros:-?}
