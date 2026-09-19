@@ -6,3 +6,6 @@ logs/
 .venv
 airflow.db
 airflow.cfg
+# O projeto dbt é montado do disco (dev: workspace; prod: /srv/airflow/dbt).
+# Fora do contexto, mudar um model não invalida a imagem.
+dbt/

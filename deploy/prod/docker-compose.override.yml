@@ -1,16 +1,20 @@
 name: airflow
 # Só para prod (atb). O deploy/build_prod.sh põe este arquivo no lugar do
-# docker-compose.override.yml de dev. O código do my_ingestion e do my_analytics
-# vai dentro da imagem, e o Astro ainda monta dags/ e include/ de /srv/airflow;
-# este arquivo só acrescenta o lake.
+# docker-compose.override.yml de dev. Como em dev, o código é lido do disco: o
+# Astro monta dags/, include/ (my_ingestion) e plugins/ de /srv/airflow, e este
+# arquivo acrescenta o my_analytics e o lake. Por isso um deploy de código só faz
+# rsync; restart (rebuild) só quando muda imagem, config ou .env (deploy/estado.sh).
 #
 # ${BIND_IP} e ${AIRFLOW_PORT} são interpolados do ambiente do processo, não do
 # .env: suba sempre com ./start.sh.
-x-lake: &lake
+x-volumes: &volumes
   # /srv/lake/buckets = buckets do SeaweedFS montados por FUSE (serviço seaweedfs-mount
-  # do homelab). Se o seaweedfs-mount reiniciar, reinicie o Airflow: o bind
+  # do homelab). Se o seaweedfs-mount reiniciar, reinicie o Airflow (Run workflow com restart): o bind
   # guarda o mount antigo.
   - /srv/lake/buckets:/usr/local/airflow/mylake:rslave
+  # Projeto dbt, mesmo alvo do dev. dbt_packages/ é instalado ali pelo passo
+  # "dbt deps" do workflow (docker exec), quando o package-lock.yml muda.
+  - ./dbt/my_analytics:/usr/local/airflow/dbt/my_analytics
 
 services:
   api-server:
@@ -36,7 +40,7 @@ services:
       - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS=False
       - AIRFLOW__API__BASE_URL=http://${BIND_IP}:${AIRFLOW_PORT}
       - AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT=120
-    volumes: *lake
+    volumes: *volumes
     networks:
       - default
       - homelab-net
@@ -45,7 +49,10 @@ services:
     user: root
     environment:
       - AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT=120
-    volumes: *lake
+      # Procura arquivos novos em dags/ a cada 60 s (padrão 300): DAG nova chega
+      # por rsync, sem restart, e o verify_prod.sh espera por ela.
+      - AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL=60
+    volumes: *volumes
     networks:
       - default
       - homelab-net
