@@ -87,8 +87,11 @@ montado em $(date -Iseconds)
 DAGs: ${permitidas[*]}
 EOF
 
-# 6. Envio. --delete remove do atb o que saiu da allowlist.
-rsync_args=(-a --delete --exclude=/.env --exclude=/simple_auth_manager_passwords.json.generated)
+# 6. Envio. --delete remove do atb o que saiu da allowlist. __pycache__ fica de
+# fora: o Astro monta dags/ e include/ nos containers e o scheduler (root) grava
+# ali arquivos que o lcs não consegue apagar.
+rsync_args=(-a --delete --exclude=/.env --exclude=/simple_auth_manager_passwords.json.generated
+            --exclude=__pycache__/)
 if $dry_run; then
     echo "montado em $build"
     rsync "${rsync_args[@]}" --dry-run --itemize-changes "$build/" "$DESTINO" | grep -v '^\.' || true
