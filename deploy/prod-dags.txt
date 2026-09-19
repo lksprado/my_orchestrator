@@ -16,5 +16,25 @@
 # Formato: um nome de arquivo por linha, relativo a dags/
 #   dag_nhl_master.py
 #
-# Estado atual: vazio de propósito. O prod roda apenas a DAG de teste que
-# já vive no repo de infraestrutura (test_seaweedfs_connection.py).
+# Primeira leva (2026-09-19): as DAGs validadas no README, sem as financeiras
+# (investimentos_*), sem as que não passaram (investimentos_fgc,
+# atacadao_historico) e sem NHL (segue no .airflowignore).
+dag_smoke_my_ingestion.py
+dag_dbt_my_analytics.py
+dag_weather_etl.py
+dag_solar.py
+dag_ranking_politicos.py
+dag_radar_congresso.py
+dag_ecidadania.py
+dag_ecidadania_paginas.py
+dag_vide_editorial.py
+dag_vide_editorial_categorias.py
+dag_camara.py
+dag_camara_cadastro.py
+dag_senado.py
+dag_senado_cadastro.py
+dag_senado_status.py
+dag_atacadao.py
+dag_fundos_imobiliarios.py
+dag_extract_demodados.py
+dag_extract_my_analytics.py
