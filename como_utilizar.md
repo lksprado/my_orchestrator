@@ -4,7 +4,7 @@ Primeira vez (ou máquina nova):
 ```shell
 git clone https://github.com/lksprado/my_ingestion.git ~/workspace/my_ingestion
 git clone https://github.com/lksprado/my_analytics.git ~/workspace/my_analytics
-cp .env.example .env        # preencher credenciais; dev exige DB__DEV__NAME=analytics_dev
+cp .env.example .env        # preencher credenciais; dev exige DB__DEV__NAME=ingestion_sandbox
 astro dev start
 ```
 

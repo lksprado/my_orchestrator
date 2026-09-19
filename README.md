@@ -13,7 +13,7 @@ Este repo tem só as DAGs, a imagem e o deploy.
 ## Uso em dev
 
 ```bash
-cp .env.example .env      # preencha; ENV=dev e banco analytics_dev
+cp .env.example .env      # preencha; ENV=dev; cargas no ingestion_sandbox, dbt no analytics_dev
 pre-commit install        # bloqueia commit direto na main
 astro dev start           # UI em http://localhost:8090
 ```
