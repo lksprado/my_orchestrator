@@ -37,7 +37,7 @@ include/my_ingestion") e rode `astro dev restart` para rebuildar.
   - `investimentos_fgc`: `raw/investments/instituicoes/instituicoes_conglomerado_prudencial.csv` no lake e a camada intermediate do my_analytics construída. Hoje falha: o SQL lê `intermediate.int_renda_fixa`, e o my_analytics gera `intermediate_financas`.
   - `atacadao_historico`: CSVs mensais em `bronze/inflation/months/`. Grava `minha_inflacao.csv` nos seeds do my_analytics, com colunas diferentes do seed atual.
   - `fundos_imobiliarios`: params `month` (YYYY-MM, vazio = mês corrente), `force` e `consolidate_only`. Usa o Selenium remoto e leva uns 40 minutos.
-- **Validar uma DAG** sem esperar o scheduler (a DAG precisa estar em arquivo; a do NHL, ignorada, também funciona assim):
+- **Validar uma DAG** sem esperar o scheduler (a DAG precisa estar em arquivo; serve inclusive para DAG em `.airflowignore`):
   ```shell
   docker exec $(docker ps -qf name=scheduler) bash -c \
     'cd /usr/local/airflow && airflow dags test <dag_id> --dagfile-path /usr/local/airflow/dags/<arquivo>.py'
@@ -71,7 +71,7 @@ depois rode *Actions → Deploy prod → Run workflow*: ele detecta o `.env` alt
 
 ## Sem submódulos
 
-O repo não tem mais submódulos. Os antigos de `include/` foram removidos em 2026-09-14 e o código deles vive no `my_ingestion`. As DAGs legadas estão em `dags/.airflowignore` até serem migradas.
+O repo não tem mais submódulos. Os antigos de `include/` foram removidos em 2026-09-14 e o código deles vive no `my_ingestion`. As DAGs que os importavam também já saíram — as da NHL foram as últimas, substituídas pela `dag_nhl_stats.py` — e o `dags/.airflowignore` está vazio.
 
 # Troubleshooting
 Problema:
