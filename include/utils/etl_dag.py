@@ -58,13 +58,16 @@ def source_dag(
     """DAG com os defaults do projeto e o parâmetro ``steps``.
 
     ``params`` extras (ex.: ``month`` de uma DAG manual) somam-se ao ``steps``.
+    ``start_date`` sobrescreve o ``START_DATE`` comum, para a fonte que só deve
+    começar numa data própria. Cron aqui é ``CronTriggerTimetable`` (Airflow 3):
+    a run sai no próprio tick, então ``start_date`` = o dia da primeira execução.
     """
     default_args = {"owner": "airflow", "retries": 2, **kwargs.pop("default_args", {})}
     extra_params = kwargs.pop("params", {})
     return DAG(
         dag_id=dag_id,
         schedule=schedule,
-        start_date=START_DATE,
+        start_date=kwargs.pop("start_date", START_DATE),
         catchup=False,
         max_active_runs=1,
         tags=list(tags),
