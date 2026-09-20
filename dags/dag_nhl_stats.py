@@ -11,6 +11,8 @@ api-web.nhle.com. A concorrência dentro de cada entidade é o options.workers d
 DAG do Airflow montada por include/utils/etl_dag.py.
 """
 
+from datetime import datetime
+
 from pipelines.esportes.nhl.nhl_etl import CONFIG_FILE, ETLS
 
 from include.utils.etl_dag import etl_group, source_dag
@@ -18,6 +20,7 @@ from include.utils.etl_dag import etl_group, source_dag
 with source_dag(
     "nhl__stats__ingestion",
     schedule="0 8 * * *",  # antes do dbt__build (30 9)
+    start_date=datetime(2026, 9, 30),  # 1a execução em 30/09 08:00
     tags=["nhl"],
     description="NHL: temporadas, times, jogos, eventos e jogadores",
 ) as dag:
