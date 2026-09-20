@@ -1,6 +1,7 @@
 name: PR
 
-# Checagem rápida antes do merge, no runner do GitHub (não alcança o atb).
+# Checagem rápida antes do merge. A sintaxe e a coerência dos templates rodam no
+# runner do GitHub; as chaves do .env real de prod só o runner do atb enxerga.
 # Import errors de verdade só aparecem com o Airflow e o my_ingestion juntos:
 # quem pega é o deploy/verify_prod.sh, depois do merge.
 on:
@@ -20,3 +21,25 @@ jobs:
         run: |
           python3 -m py_compile dags/*.py include/utils/*.py
           bash -n deploy/*.sh deploy/prod/start.sh
+
+      - name: Mesmas chaves nos dois .env.example
+        run: deploy/checar_env.sh templates
+
+  env-prod:
+    name: Chaves do .env de prod
+    # Workflow de pull_request em runner self-hosted executa o código do PR na
+    # máquina: nunca a partir de um fork.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, atb-airflow]
+    steps:
+      # path próprio: o job de deploy usa repos/* no mesmo workspace.
+      - uses: actions/checkout@v4
+        with:
+          path: pr
+
+      # Falha listando as chaves do template que faltam (ou estão vazias) no
+      # /srv/airflow/.env, sem nunca ler um valor. O runner é o github-runner,
+      # dono do arquivo. PR vermelho = o segredo ainda não está em prod.
+      - name: Template de prod x /srv/airflow/.env
+        working-directory: pr
+        run: deploy/checar_env.sh prod /srv/airflow/.env

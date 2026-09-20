@@ -57,12 +57,36 @@ def smoke_my_ingestion():
         logger.info("Conectado em %s", df["db"].iloc[0])
 
     @task
+    def check_credentials():
+        """Credenciais que são arquivo: o .env aponta, mas o bind pode faltar.
+
+        settings.google_credentials_file é None quando a chave não está no .env,
+        e gspread só reclama na hora do extract, com "No such file or directory:
+        'None'". Aqui isso vira uma smoke vermelha logo depois do deploy.
+        """
+        import json
+
+        from settings import settings
+
+        caminho = settings.google_credentials_file
+        if caminho is None:
+            raise ValueError("GOOGLE_CREDENTIALS_FILE não está no .env")
+        if not caminho.is_file():
+            raise FileNotFoundError(f"service account não montada: {caminho}")
+        conta = json.loads(caminho.read_text(encoding="utf-8"))["client_email"]
+        logger.info("service account %s em %s", conta, caminho)
+
+    @task
     def check_dbt_project():
         if not DBT_PROJECT.is_file():
             raise FileNotFoundError(f"my_analytics não montado: {DBT_PROJECT}")
         logger.info("my_analytics em %s", DBT_PROJECT.parent)
 
-    check_imports_and_settings() >> [check_database(), check_dbt_project()]
+    check_imports_and_settings() >> [
+        check_database(),
+        check_dbt_project(),
+        check_credentials(),
+    ]
 
 
 dag = smoke_my_ingestion()
