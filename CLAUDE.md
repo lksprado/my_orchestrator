@@ -39,7 +39,7 @@ Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, databas
 
 ### Dev bind mounts
 
-In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/my_analytics` are mounted at `include/my_ingestion/src` and `dbt/my_analytics`, so edits there are live in Airflow. Without `~/workspace` checked out, the migrated DAGs fail to import. Only `src/` of my_ingestion is mounted on purpose: its own `.env` (localhost, `/media/...`) must not be read inside the container; configuration comes exclusively from this repo's `.env`.
+In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/my_analytics` are mounted at `include/my_ingestion/src` and `dbt/my_analytics`, so edits there are live in Airflow. Without `~/workspace` checked out, the migrated DAGs fail to import. Only `src/` of my_ingestion is mounted in dev on purpose: its own `.env` (localhost, `/media/...`) must not be read inside the container; configuration comes exclusively from this repo's `.env`. Prod also ships `scripts/` (raw maintenance run with `docker exec`), never the `.env`.
 
 ### Configuration (`.env`)
 
