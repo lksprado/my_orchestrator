@@ -17,7 +17,7 @@ from include.utils.etl_dag import etl_group, source_dag
 
 with source_dag(
     "nhl__stats__ingestion",
-    schedule=None,  # em validação; original "0 8 * * *"
+    schedule="0 8 * * *",  # antes do dbt__build (30 9)
     tags=["nhl"],
     description="NHL: temporadas, times, jogos, eventos e jogadores",
 ) as dag:
