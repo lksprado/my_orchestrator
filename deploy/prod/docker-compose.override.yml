@@ -15,6 +15,9 @@ x-volumes: &volumes
   # Projeto dbt, mesmo alvo do dev. dbt_packages/ é instalado ali pelo passo
   # "dbt deps" do workflow (docker exec), quando o package-lock.yml muda.
   - ./dbt/my_analytics:/usr/local/airflow/dbt/my_analytics
+  # service account do Google (GOOGLE_CREDENTIALS_FILE aponta para cá). Fica em
+  # /srv/secrets, fora de /srv/airflow: o rsync --delete do deploy não a toca.
+  - /srv/secrets:/usr/local/airflow/.secrets:ro
 
 services:
   api-server:
