@@ -28,7 +28,7 @@ Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, databas
 - `dags/` — one file per pipeline (`@dag`/`@task` style)
 - `include/my_ingestion/` — mount point, gitignored (not a submodule); `src/` is on `PYTHONPATH` (Dockerfile), so DAGs import `core`, `pipelines`, `settings` **without package prefix** (`from core import build_etl`). The package is not pip-installed; only its deps are (see `requirements.txt`).
 - `include/utils/` — Airflow-side code: `etl_dag.py` (DAG factory), `db_interactors.py` (loads and upserts via my_ingestion's `PostgresClient`, i.e. the `DB__<ENV>__*` profile; `move_files_after_loading`), `logger_cfg.py`
-- No git submodules remain. The legacy `include/` submodules were removed on 2026-09-14; their code lives in `my_ingestion`. DAGs that imported them are kept as reference but listed in `dags/.airflowignore` until migrated.
+- No git submodules remain. The legacy `include/` submodules were removed on 2026-09-14; their code lives in `my_ingestion`. The DAGs that imported them are gone too (the NHL ones were the last, replaced by `dag_nhl_stats.py`), so `dags/.airflowignore` is empty.
 - `dbt/my_analytics/` — mount point, gitignored (not a submodule); single dbt project for all domains (schemas derived from model path by `generate_schema_name`). Run by Cosmos (`DbtDag`) with the `dbt_venv` executable.
 - `deploy/build_prod.sh` / `deploy/estado.sh` / `deploy/verify_prod.sh` — called by `.github/workflows/deploy.yml` on the atb runner: assemble `/srv/airflow` from three checkouts, then check import errors / DAG count / `0.0.0.0` after the restart
 - `deploy/prod/` — prod-only files swapped in by `deploy/build_prod.sh`: compose override, `.astro/config.yaml`, `start.sh`, `.env.example`
@@ -101,5 +101,4 @@ Astro project at `/srv/airflow` on `atb`. **The default branch is production**: 
 - Atacadão: my_ingestion writes CSVs only (no DB load), but my_analytics still reads `raw_atacadao.atacadao_raw`.
 - `investimentos_fgc` SQL reads `intermediate.int_renda_fixa`; my_analytics builds `intermediate_financas.int_renda_fixa` (DAG fails).
 - `atacadao_historico` writes `minha_inflacao.csv` with columns `Mês passado, Var`; my_analytics seed `seed_minha_inflacao.csv` has `Categoria, Mes`.
-- NHL `param_schema: staging` in `nhl_config.yml`, but my_analytics builds `vw_stg_request_*` in `staging_nhl`.
 - Data from the old databases (`demodados`, `postgres`) does not migrate by itself to `analytics_dev` (upsert tables such as `openweather_daily` must be copied first).
