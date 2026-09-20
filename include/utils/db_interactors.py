@@ -4,14 +4,16 @@ from typing import Literal
 
 import pandas as pd
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from sqlalchemy import create_engine
+from core import PostgresClient
 
 from include.utils.logger_cfg import logger
 
+# Cargas usam o perfil DB__<ENV>__* do my_ingestion, o mesmo destino do GenericETL
+# (ingestion_sandbox em dev). postgres_dw é o banco do dbt.
+
 
 def execute_query(query: str):
-    postgres_hook = PostgresHook(postgres_conn_id="postgres_dw")
-    conn = postgres_hook.get_conn()
+    conn = PostgresClient(log=logger).connect()
     cursor = conn.cursor()
     cursor.execute(query)
     conn.commit()
@@ -28,8 +30,7 @@ def send_csv_df_to_db(file_path: Path, table_name, schema, how="replace"):
         how (str, optional): _description_. Defaults to 'replace'.
     """
     logger.info(f"Iniciando carga na tabela {schema}.{table_name}")
-    postgres_hook = PostgresHook(postgres_conn_id="postgres_dw")
-    engine = create_engine("postgresql+psycopg2://", creator=postgres_hook.get_conn)
+    engine = PostgresClient(log=logger).alchemy()
     df = pd.read_csv(file_path, dtype=str)
     try:
         df.to_sql(table_name, engine, if_exists=how, index=False, schema=schema)
@@ -54,8 +55,7 @@ def send_single_batch_df_to_db(
         how (str, optional): _description_. Defaults to 'replace'.
     """
     logger.info(f"Iniciando carga na tabela {schema}.{table_name}")
-    postgres_hook = PostgresHook(postgres_conn_id="postgres_dw")
-    engine = create_engine("postgresql+psycopg2://", creator=postgres_hook.get_conn)
+    engine = PostgresClient(log=logger).alchemy()
     # Lê todos os CSVs e concatena
     input_dir = Path(dir)
 

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Apache Airflow orchestration project (repo `my_orchestrator`) on Astro Runtime 3.0-10 (Airflow 3.0.6, Python 3.12). It only orchestrates: ingestion code lives in the `my_ingestion` monorepo and transformation in the `my_analytics` dbt project. Neither is a submodule: dev mounts `~/workspace` by volume, prod bakes the tip of each repo's default branch into the image (CI/CD on merge). Data follows a medallion architecture: landing/bronze files in the lake → `raw_<fonte>.*` tables → dbt staging/intermediate/marts. Code, comments and docs are in Portuguese.
 
-Two environments, selected by environment variables only: `dev` = this machine (CLI of my_ingestion and this local Airflow, database `analytics_dev`) and `prod` = the `atb` server (`/srv/airflow`, deployed by `.github/workflows/deploy.yml` on every merge). Same DAG code in both; only the `.env` changes.
+Two environments, selected by environment variables only: `dev` = this machine (CLI of my_ingestion and this local Airflow; raw loads go to database `ingestion_sandbox`, dbt runs on `analytics_dev`) and `prod` = the `atb` server (`/srv/airflow`, deployed by `.github/workflows/deploy.yml` on every merge). Same DAG code in both; only the `.env` changes.
 
 ## Common Commands
 
@@ -27,7 +27,7 @@ Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, databas
 
 - `dags/` — one file per pipeline (`@dag`/`@task` style)
 - `include/my_ingestion/` — mount point, gitignored (not a submodule); `src/` is on `PYTHONPATH` (Dockerfile), so DAGs import `core`, `pipelines`, `settings` **without package prefix** (`from core import build_etl`). The package is not pip-installed; only its deps are (see `requirements.txt`).
-- `include/utils/` — Airflow-side code: `etl_dag.py` (DAG factory), `db_interactors.py` (loads via connection `postgres_dw`, upserts, `move_files_after_loading`), `logger_cfg.py`
+- `include/utils/` — Airflow-side code: `etl_dag.py` (DAG factory), `db_interactors.py` (loads and upserts via my_ingestion's `PostgresClient`, i.e. the `DB__<ENV>__*` profile; `move_files_after_loading`), `logger_cfg.py`
 - No git submodules remain. The legacy `include/` submodules were removed on 2026-09-14; their code lives in `my_ingestion`. DAGs that imported them are kept as reference but listed in `dags/.airflowignore` until migrated.
 - `dbt/my_analytics/` — mount point, gitignored (not a submodule); single dbt project for all domains (schemas derived from model path by `generate_schema_name`). Run by Cosmos (`DbtDag`) with the `dbt_venv` executable.
 - `deploy/build_prod.sh` / `deploy/estado.sh` / `deploy/verify_prod.sh` — called by `.github/workflows/deploy.yml` on the atb runner: assemble `/srv/airflow` from three checkouts, then check import errors / DAG count / `0.0.0.0` after the restart
@@ -43,7 +43,7 @@ In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/my_a
 
 ### Configuration (`.env`)
 
-Astro injects `.env` into every container (gitignored and dockerignored; template in `.env.example`). Keys: `ENV`, `LAKE_ROOT=/usr/local/airflow/mylake`, `SEEDS_ROOT=/usr/local/airflow/dbt/my_analytics/seeds`, `DB__DEV__*` / `DB__PROD__*` (pydantic-settings nested delimiter `__`), pipeline credentials (`APSYSTEMS_*`, `OPENWEATHER_API_KEY`, `GOOGLE_CREDENTIALS_FILE`, `URL_FINANCE__*`) and `SELENIUM_REMOTE_URL`. `settings.py` validates the active profile on import and, in dev, requires `DB__DEV__NAME=analytics_dev`. The Airflow connection `postgres_dw` is defined in the same `.env` as `AIRFLOW_CONN_POSTGRES_DW` and must point to the same database as the active profile (Cosmos and `include/utils` use the connection; `GenericETL` loads use `settings.db_target`). The env var wins over the entry in the metastore and in `airflow_settings.yaml`.
+Astro injects `.env` into every container (gitignored and dockerignored; template in `.env.example`). Keys: `ENV`, `LAKE_ROOT=/usr/local/airflow/mylake`, `SEEDS_ROOT=/usr/local/airflow/dbt/my_analytics/seeds`, `DB__DEV__*` / `DB__PROD__*` (pydantic-settings nested delimiter `__`), pipeline credentials (`APSYSTEMS_*`, `OPENWEATHER_API_KEY`, `GOOGLE_CREDENTIALS_FILE`, `URL_FINANCE__*`) and `SELENIUM_REMOTE_URL`. `settings.py` validates the active profile on import and, in dev, requires `DB__DEV__NAME=ingestion_sandbox`. The Airflow connection `postgres_dw` is defined in the same `.env` as `AIRFLOW_CONN_POSTGRES_DW` and is the dbt database (Cosmos, `export_table_to_csv`). Every raw load (`GenericETL` and `include/utils/db_interactors.py`) uses `settings.db_target`. In dev they are different databases (`ingestion_sandbox` vs `analytics_dev`; raw reaches `analytics_dev` via my_ingestion's `scripts/raw_copy.sh promote`); in prod both point to `analytics_prod`. The env var wins over the entry in the metastore and in `airflow_settings.yaml`.
 
 ### DAG Pattern (one DAG per my_ingestion source)
 
@@ -83,8 +83,8 @@ with source_dag("<fonte>", schedule="30 2 * * 1", tags=["<dominio>"]) as dag:
 
 ### Airflow Connections (local)
 
-- `postgres_dw` → from `AIRFLOW_CONN_POSTGRES_DW` in `.env`: `host.docker.internal:5435`, database `analytics_dev` (Cosmos + `include/utils`)
-- `demodadosdw` → legacy database `demodados`, **which no longer exists** (only `analytics_dev` and `metabase` remain on 5435). Legacy DAGs that depended on the old `postgres`/`demodados` databases are already broken.
+- `postgres_dw` → from `AIRFLOW_CONN_POSTGRES_DW` in `.env`: `host.docker.internal:5435`, database `analytics_dev` (Cosmos; raw loads do not use it)
+- `demodadosdw` → legacy database `demodados`, **which no longer exists** (only `analytics_dev`, `ingestion_sandbox` and `metabase` remain on 5435). Legacy DAGs that depended on the old `postgres`/`demodados` databases are already broken.
 - `openweather_conn` → HTTP to `api.openweathermap.org`
 
 ### Prod (`atb`)

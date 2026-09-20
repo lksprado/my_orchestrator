@@ -30,7 +30,8 @@ Os dois ambientes:
 | Airflow | `~/workspace/my_orchestrator`, `astro dev start`, http://localhost:8090 | `/srv/airflow`, http://100.82.7.107:8080 |
 | Código do `my_ingestion` / `my_analytics` | **working tree** de `~/workspace/...`, montado ao vivo | **ponta da branch principal**, embutida na imagem a cada merge |
 | DAGs | todas as de `dags/` (menos o `.airflowignore`) | as mesmas de dev |
-| Banco | `analytics_dev` (localhost:5435) | `analytics_prod` (`postgres-dwh`, 100.82.7.107:5432) |
+| Banco das cargas raw (`DB__<ENV>__*`) | `ingestion_sandbox` (localhost:5435) | `analytics_prod` (`postgres-dwh`, 100.82.7.107:5432) |
+| Banco do dbt (`postgres_dw`) | `analytics_dev` (localhost:5435) | `analytics_prod` (o mesmo) |
 | Lake | `/media/lucas/Files/2.Projetos/0.mylake` | buckets do SeaweedFS em `/srv/lake/buckets` |
 | Configuração | `~/workspace/my_orchestrator/.env` | `/srv/airflow/.env` (só no servidor) |
 
@@ -112,7 +113,8 @@ Exemplo: uma fonte `exemplo` no domínio `legislativo`, com uma entidade `itens`
    uv run python -m pipelines.legislativo.exemplo.exemplo_etl
    uv run task test && uv run task lint
    ```
-3. Confira `raw_exemplo.itens` no `analytics_dev`.
+3. Confira `raw_exemplo.itens` no `ingestion_sandbox`. Validado, leve para o banco do dbt:
+   `scripts/raw_copy.sh promote raw_exemplo` (no `my_ingestion`).
 4. Credencial nova? Coloque no `settings.py` e no `.env.example` do `my_ingestion`, e anote: ela vai
    precisar existir também no `.env` do `my_orchestrator` (dev) e no `/srv/airflow/.env` (prod).
 5. Biblioteca Python nova? Além do `pyproject.toml` do `my_ingestion`, ela precisa entrar no
