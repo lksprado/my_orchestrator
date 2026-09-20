@@ -18,8 +18,10 @@ Etapas de cada entidade (deduzidas do YAML e do ``Etl``):
 - ``extract``: se o ``Etl`` tem ``extract`` ou o source tem ``base_url``;
 - ``transform``: se o ``Etl`` tem ``transform``;
 - ``load``: se o ``Etl`` tem ``load`` ou o modo não é ``none``;
-- ``check_bronze``: antes do ``load`` nos modos ``table`` e ``files``. Os dois
-  fazem ``replace``, então um bronze vazio zeraria a raw.
+- ``check_bronze``: antes do ``load`` nos modos ``table`` e ``files``. Em
+  ``write: truncate`` um bronze vazio zeraria a raw. Em entidade incremental por
+  arquivo (``write: append`` + ``options.control_table``) quem manda é o
+  manifesto: vazio significa "nada novo", e a carga se pula sozinha.
 
 Parâmetro ``steps`` (disparo manual): lista das etapas a executar. As demais são
 puladas; por exemplo ``["transform", "load"]`` reprocessa o landing sem bater na
@@ -41,6 +43,7 @@ from pathlib import Path
 from airflow.exceptions import AirflowSkipException
 from airflow.sdk import DAG, Param, TaskGroup, get_current_context, task
 from core import Etl, build_etl, load_yaml
+from core.control import read_manifest
 
 ALL_STEPS = ("extract", "transform", "load")
 START_DATE = datetime(2026, 9, 14)
@@ -121,6 +124,11 @@ def _has_data_rows(path: Path) -> bool:
 def _check_bronze(config_file: Path | str, etl: Etl, entidade: str, mode: str) -> None:
     cfg = build_etl(config_file, entidade, etl).cfg
     if mode == "table":
+        if cfg.write == "append" and cfg.options.get("control_table"):
+            # Incremental por arquivo: sem manifesto novo não há bronze a exigir.
+            # O load enxerga o manifesto vazio e não faz nada.
+            if not read_manifest(cfg):
+                return
         path = cfg.bronze_filepath
         if not path.is_file():
             raise FileNotFoundError(f"Bronze ausente, abortando carga: {path}")

@@ -11,9 +11,11 @@
 #   - este repo no HEAD (só o que está versionado);
 #   - dags/ inteiro, como em dev (o .airflowignore vale nos dois);
 #   - deploy/prod/* no lugar do override de dev, do .astro/config.yaml e do start.sh;
-#   - my_ingestion (só src/) em include/my_ingestion/src e my_analytics em
+#   - my_ingestion (src/ e scripts/) em include/my_ingestion/ e my_analytics em
 #     dbt/my_analytics (os pacotes dbt são instalados pelo passo "dbt deps" do
-#     workflow, no próprio servidor).
+#     workflow, no próprio servidor). scripts/ vai junto porque a manutenção da
+#     raw (semear a tabela de controle, migrar o lake) roda com docker exec no
+#     scheduler; o .env do my_ingestion continua de fora, de propósito.
 # O .env e o arquivo de senhas do Airflow no destino nunca são tocados.
 
 set -euo pipefail
@@ -41,7 +43,7 @@ rm -f "$build/airflow_settings.yaml"
 
 # 3. my_ingestion e my_analytics, no commit que está em checkout.
 mkdir -p "$build/include/my_ingestion" "$build/dbt/my_analytics"
-git -C "$ingestion" archive HEAD src | tar -x -C "$build/include/my_ingestion"
+git -C "$ingestion" archive HEAD src scripts | tar -x -C "$build/include/my_ingestion"
 git -C "$analytics" archive HEAD | tar -x -C "$build/dbt/my_analytics"
 
 # 4. O que está no ar.

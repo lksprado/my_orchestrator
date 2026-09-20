@@ -1,9 +1,12 @@
 """Clima (OpenWeather day_summary), incremental por data.
 
-Piloto do padrão my_ingestion com load: none — extract e transform vêm do
-pipelines.clima.openweather.openweather_etl (high-water mark, datas faltantes e
-all_dfs.csv); a carga fica aqui: CSV -> staging -> upsert em
-raw_openweather.openweather_daily -> JSONs movidos para bronze/weather_project.
+As três etapas vêm do pipelines.clima.openweather.openweather_etl: high-water
+mark em raw_openweather.openweather_daily -> datas faltantes -> um JSON por dia
+no landing -> all_dfs.csv -> full refresh da tabela. O landing acumula os JSONs —
+nada é movido depois da carga, porque é dele que o transform reconstrói a tabela.
+
+Não usa include/utils/etl_dag.py porque tem sensor da API e short-circuit quando
+não há data nova.
 """
 
 import os
@@ -15,54 +18,7 @@ from core import build_etl
 from core.incremental import read_dates_csv
 from pipelines.clima.openweather.openweather_etl import CONFIG_FILE, ETLS
 
-from include.utils.db_interactors import (
-    execute_query,
-    move_files_after_loading,
-    send_csv_df_to_db,
-)
-
 ENTIDADE = "daily"
-STG_TABLE = "raw_openweather.stg_openweather_daily"
-RAW_TABLE = "raw_openweather.openweather_daily"
-
-_COLS = """
-    date,
-    cloud_cover_afternoon,
-    humidity_afternoon,
-    precipitation_total,
-    temperature_min,
-    temperature_max,
-    temperature_afternoon,
-    temperature_night,
-    temperature_evening,
-    temperature_morning,
-    pressure_afternoon,
-    wind_max_speed,
-    wind_max_direction
-"""
-
-query_upsert = f"""
-    INSERT INTO {RAW_TABLE} ({_COLS})
-    SELECT {_COLS} FROM {STG_TABLE}
-    ON CONFLICT (date) DO UPDATE SET
-        cloud_cover_afternoon = EXCLUDED.cloud_cover_afternoon,
-        humidity_afternoon = EXCLUDED.humidity_afternoon,
-        precipitation_total = EXCLUDED.precipitation_total,
-        temperature_min = EXCLUDED.temperature_min,
-        temperature_max = EXCLUDED.temperature_max,
-        temperature_afternoon = EXCLUDED.temperature_afternoon,
-        temperature_night = EXCLUDED.temperature_night,
-        temperature_evening = EXCLUDED.temperature_evening,
-        temperature_morning = EXCLUDED.temperature_morning,
-        pressure_afternoon = EXCLUDED.pressure_afternoon,
-        wind_max_speed = EXCLUDED.wind_max_speed,
-        wind_max_direction = EXCLUDED.wind_max_direction;
-"""
-# Pré-requisito no banco do ambiente:
-# ALTER TABLE raw_openweather.openweather_daily
-#     ADD CONSTRAINT openweather_date_pk PRIMARY KEY (date);
-
-query_drop_stg = f"DROP TABLE IF EXISTS {STG_TABLE};"
 
 default_args = {
     "owner": "airflow",
@@ -103,7 +59,7 @@ def weather_etl():
 
     @task
     def extract():
-        # high-water mark em RAW_TABLE -> missing_dates.csv -> um JSON por dia
+        # high-water mark na tabela -> missing_dates.csv -> um JSON por dia
         _etl().extract()
 
     @task.short_circuit
@@ -117,35 +73,16 @@ def weather_etl():
         _etl().transform()
 
     @task
-    def load_staging():
-        schema, table = STG_TABLE.split(".")
-        send_csv_df_to_db(_etl().cfg.bronze_filepath, table, schema)
-
-    @task
-    def upsert_raw():
-        execute_query(query_upsert)
-
-    @task
-    def clear_staging():
-        from settings import settings
-
-        cfg = _etl().cfg
-        bronze_dir = settings.lake_root / "bronze" / "weather_project"
-        move_files_after_loading(cfg.landing_dir, bronze_dir)
-
-    @task
-    def drop_staging():
-        execute_query(query_drop_stg)
+    def load():
+        # Full refresh: TRUNCATE + COPY do all_dfs.csv, numa transação.
+        _etl().load()
 
     (
         check_api_availability
         >> extract()
         >> has_new_dates()
         >> transform()
-        >> load_staging()
-        >> upsert_raw()
-        >> clear_staging()
-        >> drop_staging()
+        >> load()
     )
 
 

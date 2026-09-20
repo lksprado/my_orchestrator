@@ -27,7 +27,7 @@ Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, databas
 
 - `dags/` — one file per pipeline (`@dag`/`@task` style)
 - `include/my_ingestion/` — mount point, gitignored (not a submodule); `src/` is on `PYTHONPATH` (Dockerfile), so DAGs import `core`, `pipelines`, `settings` **without package prefix** (`from core import build_etl`). The package is not pip-installed; only its deps are (see `requirements.txt`).
-- `include/utils/` — Airflow-side code: `etl_dag.py` (DAG factory), `db_interactors.py` (loads and upserts via my_ingestion's `PostgresClient`, i.e. the `DB__<ENV>__*` profile; `move_files_after_loading`), `logger_cfg.py`
+- `include/utils/` — Airflow-side code: `etl_dag.py` (DAG factory), `db_interactors.py` (**now unused**: its `to_sql` loads, upserts and `move_files_after_loading` served solar/weather, which moved to `GenericETL.load()`; safe to delete), `logger_cfg.py`
 - No git submodules remain. The legacy `include/` submodules were removed on 2026-09-14; their code lives in `my_ingestion`. The DAGs that imported them are gone too (the NHL ones were the last, replaced by `dag_nhl_stats.py`), so `dags/.airflowignore` is empty.
 - `dbt/my_analytics/` — mount point, gitignored (not a submodule); single dbt project for all domains (schemas derived from model path by `generate_schema_name`). Run by Cosmos (`DbtDag`) with the `dbt_venv` executable.
 - `deploy/build_prod.sh` / `deploy/estado.sh` / `deploy/verify_prod.sh` — called by `.github/workflows/deploy.yml` on the atb runner: assemble `/srv/airflow` from three checkouts, then check import errors / DAG count / `0.0.0.0` after the restart
@@ -39,7 +39,7 @@ Run the `smoke_my_ingestion` DAG after start: it checks imports, `.env`, databas
 
 ### Dev bind mounts
 
-In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/my_analytics` are mounted at `include/my_ingestion/src` and `dbt/my_analytics`, so edits there are live in Airflow. Without `~/workspace` checked out, the migrated DAGs fail to import. Only `src/` of my_ingestion is mounted on purpose: its own `.env` (localhost, `/media/...`) must not be read inside the container; configuration comes exclusively from this repo's `.env`.
+In dev the working trees of `~/workspace/my_ingestion/src` and `~/workspace/my_analytics` are mounted at `include/my_ingestion/src` and `dbt/my_analytics`, so edits there are live in Airflow. Without `~/workspace` checked out, the migrated DAGs fail to import. Only `src/` of my_ingestion is mounted in dev on purpose: its own `.env` (localhost, `/media/...`) must not be read inside the container; configuration comes exclusively from this repo's `.env`. Prod also ships `scripts/` (raw maintenance run with `docker exec`), never the `.env`.
 
 ### Configuration (`.env`)
 
@@ -65,7 +65,7 @@ with source_dag("<fonte>", schedule="30 2 * * 1", tags=["<dominio>"]) as dag:
 - The ETL is built **inside** each task (`build_etl` creates directories); only the YAML is read at parse.
 - Manual trigger with `steps=["transform","load"]` reprocesses the landing without hitting the source; all tasks use `none_failed` so a skipped step does not skip the rest.
 - **Every DAG file must contain the words "airflow" and "dag"**: DagBag safe mode silently skips files without them. Factory-only files mention Airflow in the docstring. `tests/dags/test_etl_dag.py` fails if a non-ignored file yields no DAG.
-- Exceptions without raw load (atacadao, atacadao_historico, investimentos_fgc) call the my_ingestion function in a plain `@task`; `fundos_imobiliarios` runs `python -m ...run` via `BashOperator` because its logic lives in `__main__`. `load: none` sources (solar, weather) load in the DAG with `include/utils/db_interactors.py` + upsert SQL.
+- Exceptions without raw load (atacadao, atacadao_historico, investimentos_fgc) call the my_ingestion function in a plain `@task`; `fundos_imobiliarios` runs `python -m ...run` via `BashOperator` because its logic lives in `__main__`. Solar and weather were `load: none` with the upsert written in the DAG; they are now ordinary `GenericETL` sources (`load: table`, full refresh from the landing), so the DAG only wires the steps.
 - Credentials from `settings` (env), not `Variable.get`. No `setup_logger()` (Airflow configures the root logger).
 - New DAGs start with `schedule=None  # em validação...; original "<cron>"` and get the schedule only after passing validation (`airflow dags test <dag_id> --dagfile-path ...`, compared against the migrated copies in `analytics_dev`).
 - Table names are **aligned** with my_analytics since my_ingestion `b3c79f3`: sources the dbt already read load into those tables (`raw_camara.raw_camara_*`, `raw_senado.raw_senado_*`, `raw_apsystem`, `raw_vide_editora.vide_raw_home_featured`, `raw_google_sheets`). `raw_<fonte>.<entidade>` is only for new sources.
@@ -74,7 +74,8 @@ with source_dag("<fonte>", schedule="30 2 * * 1", tags=["<dominio>"]) as dag:
 
 - `packages.txt`: `poppler-utils` (Avenue PDFs via `pdftotext`).
 - `SELENIUM_REMOTE_URL` in `.env` (solar, fundos imobiliários): the image has no Chrome; dev uses the `selenium_container` at `http://host.docker.internal:4444/wd/hub`. Merged in my_ingestion `main`: `9a68a75` remote driver, `c3ab58d` new APsystems report iframe, `8bcde24` `--disable-dev-shm-usage` for FII (the Selenium container has 64 MB of /dev/shm).
-- `raw_apsystem.solar_daily_energy` / `solar_hourly_energy` must have PKs on `date` / `datetime` (upsert `ON CONFLICT`); `dag_solar.py` reads the schema from `solar_config.yml`.
+- `raw_apsystem.solar_daily_energy` / `solar_hourly_energy` no longer need their PKs on `date` / `datetime`: the load is a full refresh, not an upsert. The existing unique indexes are harmless and can stay.
+- Solar and weather keep their JSON history in the landing (`raw/solar_project`, `raw/weather_project`): the transform rebuilds the tables from it, so **nothing may move those files after the load**. my_ingestion's `scripts/lake_migra_clima_solar.sh` does the one-time move from the old `staging/` + `bronze/` layout and must run on `/usr/local/airflow/mylake` before the first prod run.
 - `senado_status` copies the e-Cidadania `paginas` bronze into the Senado `parameter_dir` before running (link not declared in the YAMLs).
 
 ### Key Dependencies & Pinning
