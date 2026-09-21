@@ -19,8 +19,13 @@ x-volumes: &volumes
   # /srv/secrets, fora de /srv/airflow: o rsync --delete do deploy não a toca.
   - /srv/secrets:/usr/local/airflow/.secrets:ro
 
+# Tetos de memoria: nenhum container tinha limite, entao um dbt ou um Chrome
+# descontrolado podia derrubar o host inteiro (23 GB, compartilhados com o
+# postgres-dwh do homelab). Nao ha limite de CPU de proposito: usar as 8 vCPU
+# e o objetivo. So prod; em dev o Astro segue sem teto.
 services:
   api-server:
+    mem_limit: 2g
     ports: !override
       - "${BIND_IP}:${AIRFLOW_PORT}:8080"
       # O astro dev start/restart confere a saúde em http://localhost:<porta>; sem
@@ -37,6 +42,7 @@ services:
       - homelab-net
 
   scheduler:
+    mem_limit: 6g
     # root como em dev: as tasks gravam no lake com o dono que o FUSE mostrar.
     user: root
     environment:
@@ -49,6 +55,7 @@ services:
       - homelab-net
 
   dag-processor:
+    mem_limit: 2g
     user: root
     environment:
       - AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT=120
@@ -61,6 +68,7 @@ services:
       - homelab-net
 
   triggerer:
+    mem_limit: 1g
     networks:
       - default
       - homelab-net
@@ -68,9 +76,14 @@ services:
   # Chrome remoto dos pipelines solar e fundos_imobiliarios
   # (SELENIUM_REMOTE_URL=http://selenium:4444/wd/hub). Sem porta publicada.
   selenium:
+    mem_limit: 2g
     image: selenium/standalone-chrome:latest
     shm_size: 2gb
     restart: unless-stopped
+
+  # Banco de metadados do proprio Astro (nao e o postgres-dwh do dbt).
+  postgres:
+    mem_limit: 1g
 
 networks:
   homelab-net:
