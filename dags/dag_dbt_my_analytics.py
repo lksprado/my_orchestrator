@@ -9,7 +9,14 @@ irrelevante: generate_schema_name deriva o schema do caminho do model.
 import os
 from datetime import datetime
 
-from cosmos import DbtDag, ExecutionConfig, ProfileConfig, ProjectConfig
+from cosmos import (
+    DbtDag,
+    ExecutionConfig,
+    ProfileConfig,
+    ProjectConfig,
+    RenderConfig,
+    TestBehavior,
+)
 from cosmos.profiles import PostgresUserPasswordProfileMapping
 
 DBT_PROJECT = "/usr/local/airflow/dbt/my_analytics"
@@ -29,6 +36,11 @@ dag_dbt_my_analytics = DbtDag(
         project_name="my_analytics",
     ),
     profile_config=profile_config,
+    render_config=RenderConfig(
+        # after_each põe o teste relationships na task .test da dimensão, que
+        # consulta a fato antes dela existir; os testes vão todos para o fim
+        test_behavior=TestBehavior.AFTER_ALL,
+    ),
     execution_config=ExecutionConfig(
         dbt_executable_path=f"{os.environ['AIRFLOW_HOME']}/dbt_venv/bin/dbt",
     ),
