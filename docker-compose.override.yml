@@ -8,6 +8,8 @@ x-dev-volumes: &dev-volumes
   # só src/: o .env do my_ingestion (localhost, /media/...) não pode ser lido
   # como dotenv dentro do container — a config vem exclusivamente do ambiente.
   - /home/lucas/workspace/my_ingestion/src:/usr/local/airflow/include/my_ingestion/src
+  # scripts/ (raw_copy.sh) para a DAG raw_pull_prod; read-only e sem o .env
+  - /home/lucas/workspace/my_ingestion/scripts:/usr/local/airflow/include/my_ingestion/scripts:ro
   - /home/lucas/workspace/my_analytics:/usr/local/airflow/dbt/my_analytics
   - /media/lucas/Files/2.Projetos/0.mylake:/usr/local/airflow/mylake
   # service account do Google (GOOGLE_CREDENTIALS_FILE aponta para cá)
