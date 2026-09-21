@@ -26,7 +26,14 @@ profile_config = ProfileConfig(
     target_name=os.environ.get("ENV", "dev"),
     profile_mapping=PostgresUserPasswordProfileMapping(
         conn_id="postgres_dw",
-        profile_args={"schema": "public"},
+        # threads vai no profile (profiles.yml), único lugar de onde o dbt lê:
+        # o Cosmos não conhece "threads" em operator_args. Como cada model é uma
+        # task (dbt run --select <model>), threads pesa mesmo é na task única de
+        # testes do AFTER_ALL. Default 1 = dev; prod define DBT_THREADS no .env.
+        profile_args={
+            "schema": "public",
+            "threads": int(os.environ.get("DBT_THREADS", "1")),
+        },
     ),
 )
 
@@ -47,12 +54,13 @@ dag_dbt_my_analytics = DbtDag(
     operator_args={
         # dbt_packages/ é vendorado no my_analytics: sem install_deps
         "target": profile_config.target_name,
-        "threads": 1,
     },
     schedule="30 9 * * *",
     start_date=datetime(2026, 9, 13),
     dag_id="dbt__build",
     default_args={"retries": 2},
     tags=["datawarehouses"],
-    max_active_tasks=2,
+    # Paralelismo dos models: é daqui que vem o ganho, não do threads. Default 2
+    # = dev (máquina compartilhada); prod define DBT_MAX_ACTIVE_TASKS no .env.
+    max_active_tasks=int(os.environ.get("DBT_MAX_ACTIVE_TASKS", "2")),
 )
