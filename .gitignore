@@ -16,3 +16,7 @@ airflow.db
 include/my_ingestion/
 dbt/my_analytics/
 logs/
+
+# DAG só de dev: copia a raw de prod para o analytics_dev, que só existe
+# nesta máquina. Fora do versionamento, o deploy nunca a leva para o atb.
+dags/dag_raw_pull_prod.py
