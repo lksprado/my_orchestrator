@@ -82,7 +82,7 @@ Tabela que acabou de ganhar `loaded_at_utc` precisa de um `pull --full` (param `
 
 - `packages.txt`: `poppler-utils` (Avenue PDFs via `pdftotext`).
 - `Dockerfile`: `postgresql-client-16` do repositório PGDG (o `packages.txt` só alcança o bookworm, que tem o 15, e `pg_dump` 15 recusa servidor 16). Todo rebuild da imagem passa a depender do `apt.postgresql.org`; rebuild só acontece quando `deploy/estado.sh` vê mudança em `Dockerfile`/`requirements.txt`/`packages.txt`.
-- `SELENIUM_REMOTE_URL` in `.env` (solar, fundos imobiliários): the image has no Chrome; dev uses the `selenium_container` at `http://host.docker.internal:4444/wd/hub`. Merged in my_ingestion `main`: `9a68a75` remote driver, `c3ab58d` new APsystems report iframe, `8bcde24` `--disable-dev-shm-usage` for FII (the Selenium container has 64 MB of /dev/shm).
+- `SELENIUM_REMOTE_URL` in `.env` (solar, fundos imobiliários): the image has no Chrome; dev uses the `selenium_container` at `http://selenium_container:4444/wd/hub` (container name on the shared `local-network`). Merged in my_ingestion `main`: `9a68a75` remote driver, `c3ab58d` new APsystems report iframe, `8bcde24` `--disable-dev-shm-usage` for FII (the Selenium container has 64 MB of /dev/shm).
 - `raw_apsystem.solar_daily_energy` / `solar_hourly_energy` no longer need their PKs on `date` / `datetime`: the load is a full refresh, not an upsert. The existing unique indexes are harmless and can stay.
 - Solar and weather keep their JSON history in the landing (`raw/solar_project`, `raw/weather_project`): the transform rebuilds the tables from it, so **nothing may move those files after the load**. my_ingestion's `scripts/lake_migra_clima_solar.sh` does the one-time move from the old `staging/` + `bronze/` layout and must run on `/usr/local/airflow/mylake` before the first prod run.
 - `senado_status` copies the e-Cidadania `paginas` bronze into the Senado `parameter_dir` before running (link not declared in the YAMLs).
@@ -93,7 +93,7 @@ Tabela que acabou de ganhar `loaded_at_utc` precisa de um `pull --full` (param `
 
 ### Airflow Connections (local)
 
-- `postgres_dw` → from `AIRFLOW_CONN_POSTGRES_DW` in `.env`: `host.docker.internal:5435`, database `analytics_dev` (Cosmos; raw loads do not use it)
+- `postgres_dw` → from `AIRFLOW_CONN_POSTGRES_DW` in `.env`: `personalpostgres:5432` (container name on the shared `local-network`), database `analytics_dev` (Cosmos; raw loads do not use it)
 - `demodadosdw` → legacy database `demodados`, **which no longer exists** (only `analytics_dev`, `ingestion_sandbox` and `metabase` remain on 5435). Legacy DAGs that depended on the old `postgres`/`demodados` databases are already broken.
 - `openweather_conn` → HTTP to `api.openweathermap.org`
 
