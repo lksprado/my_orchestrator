@@ -21,9 +21,19 @@ services:
     environment:
       AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT: "120"
     volumes: *dev-volumes
+    networks:
+      - default
+      - local-network
 
   dag-processor:
     user: root
     environment:
       AIRFLOW__DAG_PROCESSOR__DAGBAG_IMPORT_TIMEOUT: "120"
     volumes: *dev-volumes
+    networks:
+      - default
+      - local-network
+
+networks:
+  local-network:
+    external: true
