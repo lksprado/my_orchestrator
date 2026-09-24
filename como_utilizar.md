@@ -32,7 +32,12 @@ include/my_ingestion") e rode `astro dev restart` para rebuildar.
   ```
   Para Solar e weather, que movem os JSONs para o bronze depois da carga, devolva os arquivos ao staging antes.
 - **DAGs manuais** e o que precisam antes:
-  - `camara_cadastro`, `senado_cadastro`: nada; rode quando mudar a legislatura.
+  - `camara_cadastro`, `senado_cadastro`: nada; rode quando mudar a legislatura. Na troca de legislatura, acrescente a nova em `options.legislaturas` do `camara_config.yml` (my_ingestion).
+- **Backfill de votações da Câmara** (uma vez, ou quando uma auditoria achar lacunas): o extract de rotina só pega os 2 últimos trimestres. Rode no container, onde está o landing, e depois dispare `camara__bills__ingestion`:
+  ```shell
+  docker exec $(docker ps -qf name=scheduler) bash -c \
+    'cd /usr/local/airflow && python include/my_ingestion/scripts/camara_votacoes_backfill.py --desde 2001'
+  ```
   - `investimentos_arquivos`: copie os Excel da B3 e os PDFs da Avenue para `raw/investments/b3|avenue/<pessoa>/`.
   - `investimentos_fgc`: `raw/investments/instituicoes/instituicoes_conglomerado_prudencial.csv` no lake e a camada intermediate do my_analytics construída. Hoje falha: o SQL lê `intermediate.int_renda_fixa`, e o my_analytics gera `intermediate_financas`.
   - `atacadao_historico`: CSVs mensais em `bronze/inflation/months/`. Grava `minha_inflacao.csv` nos seeds do my_analytics, com colunas diferentes do seed atual.

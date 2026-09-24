@@ -1,8 +1,9 @@
 """Senado Federal (my_ingestion: legislativo/senado).
 
 votacoes grava o landing que votos_senadores lê e o id_processo.csv que
-parametriza processo. votos_orientacao é independente. Cadastro fica em
-senado_cadastro e status em senado_status.
+parametriza processo. votos_orientacao e processos (listagem anual de todos os
+processos, 1946 em diante) são independentes. Cadastro fica em senado_cadastro e
+status em senado_status.
 
 DAG do Airflow montada por include/utils/etl_dag.py.
 """
@@ -15,7 +16,7 @@ with source_dag(
     "senado__bills__ingestion",
     schedule="30 2 1 * *",
     tags=["politics"],
-    description="Senado: votações (2001 em diante), votos, orientações e processos",
+    description="Senado: votações (2001 em diante), votos, orientações e processos (votados e todos)",
     max_active_tasks=2,
 ) as dag:
     votacoes = etl_group(CONFIG_FILE, ETLS, "votacoes")
@@ -24,3 +25,4 @@ with source_dag(
         etl_group(CONFIG_FILE, ETLS, "processo"),
     ]
     etl_group(CONFIG_FILE, ETLS, "votos_orientacao")
+    etl_group(CONFIG_FILE, ETLS, "processos")
