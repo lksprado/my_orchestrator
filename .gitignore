@@ -17,9 +17,11 @@ include/my_ingestion/
 dbt/my_analytics/
 logs/
 
-# DAG só de dev: copia a raw de prod para o analytics_dev, que só existe
-# nesta máquina. Fora do versionamento, o deploy nunca a leva para o atb.
+# DAGs só de dev: copiam dados de prod para o analytics_dev e para o lake
+# local (/media/...), que só existem nesta máquina. Fora do versionamento, o
+# deploy nunca as leva para o atb.
 dags/dag_raw_pull_prod.py
+dags/dag_presentation_export_prod.py
 
 # backups de edição em massa (sed -i.bak)
 *.bak

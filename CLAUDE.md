@@ -78,6 +78,8 @@ A DAG é **só de dev** e por isso `dags/dag_raw_pull_prod.py` está no `.gitign
 
 Tabela que acabou de ganhar `loaded_at_utc` precisa de um `pull --full` (param `full`) antes de o delta valer: o carimbo criado pelo `ADD COLUMN` em dev é mais novo que o de prod e o script diria "em dia" sem estar. As `ingestion_control` não têm o carimbo por desenho e são sempre cópia completa (~37 MB do `raw_nhl` e ~7,5 MB do `raw_camara` por execução).
 
+DAG irmã, também só de dev e no `.gitignore`: `dags/dag_presentation_export_prod.py` (`presentation_export_prod`, todo dia às 20h de Brasília) exporta cada tabela dos schemas `presentation_*` de `analytics_prod` para `LAKE_ROOT/presentation/<schema>/<tabela>.csv` (no host, `/media/lucas/Files/2.Projetos/0.mylake`). Usa `COPY ... TO STDOUT` com uma task mapeada por tabela e escreve num `.tmp` que só é renomeado no fim. São ~2,6 GB no banco.
+
 ### Runtime requirements
 
 - `packages.txt`: `poppler-utils` (Avenue PDFs via `pdftotext`).
