@@ -19,8 +19,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# Chaves que existem de propósito em um lado só.
-SO_DEV='^DB__DEV__'
+# Chaves que existem de propósito em um lado só. GOOGLE_DRIVE_* é da DAG
+# presentation_export_prod, que é só de dev (fica no .gitignore, nunca vai ao atb).
+SO_DEV='^(DB__DEV__|GOOGLE_DRIVE_)'
 SO_PROD='^(BIND_IP|AIRFLOW_PORT|AIRFLOW__API__SECRET_KEY|AIRFLOW_CONN_OPENWEATHER_CONN)$'
 
 # Nomes de todas as chaves do arquivo.
