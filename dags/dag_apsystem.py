@@ -1,7 +1,7 @@
 """Energia solar (portal APsystems), incremental por data.
 
-Tudo vem do my_ingestion: high-water mark em raw_apsystem, um JSON por dia via
-Selenium remoto, os CSVs diário e horário e a carga (full refresh em
+Tudo vem do my_ingestion: dias sem JSON no landing, um JSON por dia via Selenium
+remoto, os CSVs diário e horário e a carga (full refresh em
 raw_apsystem.solar_daily_energy / solar_hourly_energy). O landing acumula os
 JSONs — nada é movido depois da carga, porque é dele que o transform reconstrói
 as tabelas.
