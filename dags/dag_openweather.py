@@ -1,8 +1,8 @@
 """Clima (OpenWeather day_summary), incremental por data.
 
-As três etapas vêm do pipelines.clima.openweather.openweather_etl: high-water
-mark em raw_openweather.openweather_daily -> datas faltantes -> um JSON por dia
-no landing -> all_dfs.csv -> full refresh da tabela. O landing acumula os JSONs —
+As três etapas vêm do pipelines.clima.openweather.openweather_etl: dias sem JSON
+no landing (buracos dos últimos options.lookback_days e tudo depois do último dia
+baixado) -> um JSON por dia no landing -> all_dfs.csv -> full refresh da tabela. O landing acumula os JSONs —
 nada é movido depois da carga, porque é dele que o transform reconstrói a tabela.
 
 Não usa include/utils/etl_dag.py porque tem sensor da API e short-circuit quando
@@ -59,7 +59,7 @@ def weather_etl():
 
     @task
     def extract():
-        # high-water mark na tabela -> missing_dates.csv -> um JSON por dia
+        # dias sem JSON no landing -> missing_dates.csv -> um JSON por dia
         _etl().extract()
 
     @task.short_circuit
