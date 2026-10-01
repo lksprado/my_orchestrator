@@ -37,7 +37,7 @@ que cria diretórios); no parse só o YAML é lido.
 """
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from airflow.exceptions import AirflowSkipException
@@ -53,7 +53,7 @@ _CHECKED_MODES = ("table", "files")
 def source_dag(
     dag_id: str,
     *,
-    schedule: str | None,
+    schedule: str | timedelta | None,
     tags: Sequence[str],
     description: str | None = None,
     **kwargs,
@@ -64,6 +64,8 @@ def source_dag(
     ``start_date`` sobrescreve o ``START_DATE`` comum, para a fonte que só deve
     começar numa data própria. Cron aqui é ``CronTriggerTimetable`` (Airflow 3):
     a run sai no próprio tick, então ``start_date`` = o dia da primeira execução.
+    ``timedelta`` é ``DeltaTriggerTimetable``: sem catchup, a primeira run sai ao
+    despausar e as seguintes a cada intervalo a partir dela.
     """
     default_args = {"owner": "airflow", "retries": 2, **kwargs.pop("default_args", {})}
     extra_params = kwargs.pop("params", {})
