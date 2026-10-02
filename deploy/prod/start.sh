@@ -22,7 +22,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-[[ -f .env ]] || { echo "erro: falta o .env (copie de deploy/prod/.env.example)" >&2; exit 1; }
+[[ -f .env ]] || { echo "erro: falta o .env (gerado pelo deploy: rode o workflow Deploy prod)" >&2; exit 1; }
 mountpoint -q /srv/lake/buckets || { echo "erro: /srv/lake/buckets não está montado (serviço seaweedfs-mount do homelab)" >&2; exit 1; }
 
 ler() {

@@ -71,8 +71,10 @@ O deploy normal é só `rsync`, sem reiniciar o Airflow: DAGs, `my_ingestion` e 
 disco. Restart (rebuild) só acontece quando muda `requirements.txt`, `Dockerfile`, `packages.txt`,
 `deploy/prod/*`, `plugins/` ou o `.env`; o resumo do run no *Actions* diz se houve.
 
-Variável nova de ambiente vai à mão em `/srv/airflow/.env` (o deploy nunca toca nesse arquivo);
-depois rode *Actions → Deploy prod → Run workflow*: ele detecta o `.env` alterado e reinicia.
+O `/srv/airflow/.env` é gerado pelo deploy (`deploy/gerar_env.py`): `deploy/prod/config.env` +
+os secrets do environment `prod`. Credencial nova é `gh secret set NOME --env prod -R
+lksprado/my_orchestrator`; depois rode *Actions → Deploy prod → Run workflow*, que regera o `.env`
+e reinicia.
 
 ## Sem submódulos
 

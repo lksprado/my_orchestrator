@@ -91,8 +91,10 @@ Verde no Actions significa que o prod está atualizado. Vermelho manda e-mail.
 - para ver qual versão está no ar: `ssh atb head -2 /srv/airflow/DEPLOYED.txt`.
 
 **Variável nova ou senha trocada em prod:**
-1. `ssh atb`, edite `/srv/airflow/.env` (o modelo é `deploy/prod/.env.example`).
-2. Rode *Actions → Deploy prod → Run workflow*. Ele percebe que o `.env` mudou e reinicia.
+1. Credencial: `gh secret set NOME --env prod -R lksprado/my_orchestrator` (remover:
+   `gh secret delete`). Configuração não sensível: PR em `deploy/prod/config.env`.
+2. Rode *Actions → Deploy prod → Run workflow*. Ele regera o `/srv/airflow/.env` e, se mudou,
+   reinicia. Não edite o `.env` no atb: o deploy sobrescreve.
 
 **Desfazer:** `git revert` numa branch, PR e merge.
 

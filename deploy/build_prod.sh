@@ -16,7 +16,8 @@
 #     workflow, no próprio servidor). scripts/ vai junto porque a manutenção da
 #     raw (semear a tabela de controle, migrar o lake) roda com docker exec no
 #     scheduler; o .env do my_ingestion continua de fora, de propósito.
-# O .env e o arquivo de senhas do Airflow no destino nunca são tocados.
+# O .env e o arquivo de senhas do Airflow no destino não são tocados aqui: o .env é
+# gerado pelo deploy/gerar_env.py, no passo seguinte do workflow.
 
 set -euo pipefail
 

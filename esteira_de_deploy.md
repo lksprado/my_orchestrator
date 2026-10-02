@@ -33,7 +33,7 @@ Os dois ambientes:
 | Banco das cargas raw (`DB__<ENV>__*`) | `ingestion_sandbox` (localhost:5435) | `analytics_prod` (`postgres-dwh`, 100.82.7.107:5432) |
 | Banco do dbt (`postgres_dw`) | `analytics_dev` (localhost:5435) | `analytics_prod` (o mesmo) |
 | Lake | `/media/lucas/Files/2.Projetos/0.mylake` | buckets do SeaweedFS em `/srv/lake/buckets` |
-| Configuração | `~/workspace/my_orchestrator/.env` | `/srv/airflow/.env` (só no servidor) |
+| Configuração | `~/workspace/my_orchestrator/.env` | `/srv/airflow/.env`, gerado no deploy: `deploy/prod/config.env` + secrets do environment `prod` |
 
 Duas consequências que explicam quase tudo:
 
@@ -81,7 +81,7 @@ estão em prod.
 | model, macro, seed do `my_analytics` | rsync + verificação (sem queda) |
 | pacote dbt novo (`package-lock.yml`) | rsync + `dbt deps` no scheduler + verificação (sem queda) |
 | `requirements.txt`, `Dockerfile`, `packages.txt`, `deploy/prod/*`, `plugins/` | **restart** (rebuild da imagem, 1-2 min fora do ar) |
-| variável nova no `/srv/airflow/.env` | **restart**, no próximo deploy ou em *Run workflow* |
+| `deploy/prod/config.env` ou secret do environment `prod` | **restart** (secret só entra no próximo deploy ou em *Run workflow*) |
 
 O resumo de cada run no *Actions* mostra se houve restart e `dbt deps`. Para forçar um restart:
 *Run workflow* com a caixa **restart** marcada.
@@ -116,7 +116,8 @@ Exemplo: uma fonte `exemplo` no domínio `legislativo`, com uma entidade `itens`
 3. Confira `raw_exemplo.itens` no `ingestion_sandbox`. Validado, leve para o banco do dbt:
    `scripts/raw_copy.sh promote raw_exemplo` (no `my_ingestion`).
 4. Credencial nova? Coloque no `settings.py` e no `.env.example` do `my_ingestion`, e anote: ela vai
-   precisar existir também no `.env` do `my_orchestrator` (dev) e no `/srv/airflow/.env` (prod).
+   precisar existir também no `.env` do `my_orchestrator` (dev) e como secret do environment `prod`
+   do `my_orchestrator` (seção 3.3).
 5. Biblioteca Python nova? Além do `pyproject.toml` do `my_ingestion`, ela precisa entrar no
    `requirements.txt` do `my_orchestrator` (bloco "deps do include/my_ingestion", mesma versão do
    `uv.lock`). O Airflow não instala o `my_ingestion` como pacote, só as dependências listadas ali.
@@ -173,12 +174,15 @@ rodam quando alguém dispara essa DAG, ou quando ela ganhar um schedule.
 4. Um PR no `my_orchestrator` com `dags/dag_exemplo.py`.
 
    **Só faça o merge depois que o PR do `my_ingestion` estiver mergeado** (seção 2, "Ordem entre repos").
-5. Credencial nova? Coloque no servidor **antes** do merge (o deploy nunca toca no `.env`):
+5. Credencial nova? Acrescente no `.env.example` (e no seu `.env`) e crie o secret **antes** do
+   merge; o job *Chaves de dev x prod* do PR fica vermelho até ele existir:
    ```bash
-   ssh atb
-   nano /srv/airflow/.env      # adicionar a variável
-   exit
+   gh secret set NOME --env prod -R lksprado/my_orchestrator            # pede o valor
+   gh secret set ARQUIVO__FINANCES_PY_JSON --env prod -R lksprado/my_orchestrator < arquivo.json
    ```
+   O nome do secret é o nome da variável. Arquivo de credencial vai como `ARQUIVO__<NOME>_<EXT>` e
+   vira `/srv/secrets/<nome>.<ext>` (`_` → `-`). Configuração não sensível vai em
+   `deploy/prod/config.env`. O `/srv/airflow/.env` é reescrito a cada deploy: não edite à mão.
 6. Aprove e faça o merge.
 
 ### 3.4 Deploy
@@ -240,7 +244,7 @@ A DAG `smoke_my_ingestion` (manual) confirma o ambiente pelo lado de dentro: o l
 | Mudar ou criar model dbt | PR no `my_analytics` | sim, no merge |
 | Mudar schedule ou lógica de uma DAG | PR no `my_orchestrator` | sim, no merge |
 | Tirar uma DAG de dev e prod sem apagar o arquivo | linha em `dags/.airflowignore` (PR) | sim, no merge |
-| Mudar senha ou credencial | `/srv/airflow/.env` no atb | *Run workflow* no Deploy prod (detecta o `.env` alterado e reinicia) |
+| Mudar senha ou credencial | `gh secret set NOME --env prod` (apagar: `gh secret delete`) | *Run workflow* no Deploy prod (regera o `.env` e reinicia) |
 | Pausar ou despausar | toggle na UI | não |
 | Voltar uma versão | `git revert` do commit via PR no repo que quebrou | sim, no merge |
 
@@ -249,9 +253,9 @@ A DAG `smoke_my_ingestion` (manual) confirma o ambiente pelo lado de dentro: o l
 ## 6. Regras e armadilhas
 
 - **Prod = dev.** Toda DAG em `dags/` fora do `.airflowignore` vai para o prod no merge, inclusive as
-  financeiras (`investments_*`). Sem as credenciais no `.env` do atb, elas falham na execução.
-- **Credencial nova sem `.env` no atb** = a DAG quebra na importação (`settings` valida no import) ou
-  na execução. Crie a variável antes do merge.
+  financeiras (`investments_*`). Sem os secrets em `prod`, elas falham na execução.
+- **Credencial nova sem secret em `prod`** = o PR fica vermelho e, se mergeado assim, o deploy para
+  no passo *Gerar .env* (o `.env` de prod não muda). Crie o secret antes do merge.
 - **Deploy vermelho** = prod ficou com o código novo, mas com problema (import error, DAG faltando).
   Corrija com um PR novo ou `git revert` + PR; o merge publica de novo.
 - **Dependência nova só no `my_ingestion`** = `ModuleNotFoundError` no Airflow. Espelhe no
@@ -274,9 +278,10 @@ A DAG `smoke_my_ingestion` (manual) confirma o ambiente pelo lado de dentro: o l
 | Workflow de deploy | `my_orchestrator/.github/workflows/deploy.yml` (runner `atb-airflow`) |
 | Gatilhos dos outros repos | `.github/workflows/deploy-prod.yml` no `my_ingestion` e no `my_analytics` |
 | Scripts chamados pelo workflow | `my_orchestrator/deploy/build_prod.sh` e `deploy/verify_prod.sh` |
-| Arquivos só de prod (override, `start.sh`, modelo de `.env`) | `my_orchestrator/deploy/prod/` |
+| Arquivos só de prod (override, `start.sh`, `config.env`) | `my_orchestrator/deploy/prod/` |
 | O que está no ar | `atb:/srv/airflow/DEPLOYED.txt` |
-| `.env` de prod | `atb:/srv/airflow/.env` |
+| `.env` de prod | `atb:/srv/airflow/.env`, gerado por `deploy/gerar_env.py` (não edite à mão) |
+| Credenciais de prod | secrets do environment `prod` do `my_orchestrator` (`gh secret list --env prod`) |
 | Senha do `admin` da UI | `atb:/srv/airflow/simple_auth_manager_passwords.json.generated` |
 | Lake de prod | SeaweedFS (buckets `raw`, `bronze`, `staging`, `gold`), no host em `/srv/lake/buckets` |
 | Secrets do deploy | `INGESTION_READ_TOKEN` (my_orchestrator), `DEPLOY_DISPATCH_TOKEN` (my_ingestion e my_analytics) |
