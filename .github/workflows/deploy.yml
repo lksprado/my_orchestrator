@@ -5,8 +5,12 @@ name: Deploy prod
 # disparam este workflow por repository_dispatch (event_type: deploy).
 #
 # Roda no self-hosted runner do atb (label atb-airflow, usuário github-runner):
-# o atb só é alcançável pela Tailscale. Nada de credencial fica no servidor: o
-# my_ingestion (privado) é lido com o secret INGESTION_READ_TOKEN só durante o job.
+# o atb só é alcançável pela Tailscale. O my_ingestion (privado) é lido com o
+# secret INGESTION_READ_TOKEN só durante o job.
+#
+# O /srv/airflow/.env não é editado à mão: o passo "Gerar .env" o reescreve a cada
+# deploy com deploy/prod/config.env + todo secret do environment `prod` (ver
+# deploy/gerar_env.py). Credencial nova ou removida = gh secret set|delete.
 #
 # O deploy normal é só rsync: DAGs, my_ingestion e dbt são lidos do disco pelos
 # binds. Restart (rebuild da imagem) só quando o deploy/estado.sh vê mudança em
@@ -41,6 +45,9 @@ jobs:
   deploy:
     name: Deploy no atb
     runs-on: [self-hosted, atb-airflow]
+    # Os secrets da aplicação ficam no environment, sem regra de aprovação (senão o
+    # deploy automático para esperando alguém).
+    environment: prod
     timeout-minutes: 30
     steps:
       - name: Checkout my_orchestrator
@@ -68,6 +75,15 @@ jobs:
         env:
           DEPLOY_ORIGEM: ${{ github.event_name }} (run ${{ github.run_id }})
         run: repos/my_orchestrator/deploy/build_prod.sh repos/my_ingestion repos/my_analytics /srv/airflow/
+
+      # Antes do "Decidir restart": o .env entra no hash do estado.sh, então secret
+      # alterado reinicia sozinho. Nunca imprime valores.
+      - name: Gerar .env
+        env:
+          SEGREDOS: ${{ toJSON(secrets) }}
+        run: |
+          repos/my_orchestrator/deploy/checar_env.sh
+          repos/my_orchestrator/deploy/gerar_env.py escrever /srv/airflow/.env /srv/secrets
 
       - name: Decidir restart e dbt deps
         id: estado
