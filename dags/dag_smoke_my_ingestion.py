@@ -60,17 +60,18 @@ def smoke_my_ingestion():
     def check_credentials():
         """Credenciais que são arquivo: o .env aponta, mas o bind pode faltar.
 
-        settings.google_credentials_file é None quando a chave não está no .env,
-        e gspread só reclama na hora do extract, com "No such file or directory:
-        'None'". Aqui isso vira uma smoke vermelha logo depois do deploy.
+        Sem a chave ou sem o bind, o investimentos só reclama na hora do extract.
+        Aqui isso vira uma smoke vermelha logo depois do deploy. Lê o ambiente
+        direto: a configuração da fonte é do my_ingestion (GoogleSheetsSettings),
+        e no Airflow o .env já é variável de ambiente.
         """
         import json
+        import os
 
-        from settings import settings
-
-        caminho = settings.google_credentials_file
-        if caminho is None:
+        valor = os.environ.get("GOOGLE_CREDENTIALS_FILE")
+        if not valor:
             raise ValueError("GOOGLE_CREDENTIALS_FILE não está no .env")
+        caminho = Path(valor)
         if not caminho.is_file():
             raise FileNotFoundError(f"service account não montada: {caminho}")
         conta = json.loads(caminho.read_text(encoding="utf-8"))["client_email"]
