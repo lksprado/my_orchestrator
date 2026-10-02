@@ -15,6 +15,11 @@
 #
 # Roda no .github/workflows/pr.yml (PR vermelho = o secret ainda não existe) e no
 # deploy.yml, antes de gravar o .env.
+#
+# Só chave FALTANDO em prod falha. Secret sobrando (sem par no .env.example) é
+# aviso: entre o `gh secret set` e o merge do PR que declara a chave, e entre o
+# merge que a remove e o `gh secret delete`, ele sobra de propósito — e um deploy
+# disparado por outro repo nessa janela não pode quebrar por isso.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -40,9 +45,8 @@ done < <(comm -23 <(echo "$chaves_dev") <(echo "$chaves_prod") | grep -Ev "$SO_D
 
 while read -r chave; do
     [[ -z "$chave" ]] && continue
-    echo "  ✗ $chave está em prod e falta em $dev (secret sobrando? gh secret delete)" >&2
-    falhou=1
+    echo "  ! aviso: $chave está em prod e falta em $dev (PR pendente ou secret a apagar)" >&2
 done < <(comm -13 <(echo "$chaves_dev") <(echo "$chaves_prod") | grep -Ev "$SO_PROD" || true)
 
 [[ $falhou -eq 0 ]] || exit 1
-echo "  ✓ dev e prod têm as mesmas chaves"
+echo "  ✓ toda chave de dev tem par em prod"
