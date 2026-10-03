@@ -38,7 +38,7 @@ include/my_ingestion") e rode `astro dev restart` para rebuildar.
   docker exec $(docker ps -qf name=scheduler) bash -c \
     'cd /usr/local/airflow && python include/my_ingestion/scripts/camara_votacoes_backfill.py --desde 2001'
   ```
-  - `investimentos_arquivos`: copie os Excel da B3 e os PDFs da Avenue para `raw/investments/b3|avenue/<pessoa>/`.
+  - `investments__portfolio__ingestion` (só no Airflow de dev): copie os Excel da B3 e os PDFs da Avenue para `raw/investments/b3|avenue/<pessoa>/`. Carrega no `analytics_dev`.
   - `investimentos_fgc`: `raw/investments/instituicoes/instituicoes_conglomerado_prudencial.csv` no lake e a camada intermediate do my_analytics construída. Hoje falha: o SQL lê `intermediate.int_renda_fixa`, e o my_analytics gera `intermediate_financas`.
   - `atacadao_historico`: CSVs mensais em `bronze/inflation/months/`. Grava `minha_inflacao.csv` nos seeds do my_analytics, com colunas diferentes do seed atual.
   - `fundos_imobiliarios`: params `month` (YYYY-MM, vazio = mês corrente), `force` e `consolidate_only`. Usa o Selenium remoto e leva uns 40 minutos.
