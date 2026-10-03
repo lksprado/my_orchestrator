@@ -83,6 +83,8 @@ DAG irmã, também só de dev e no `.gitignore`: `dags/dag_presentation_export_p
 
 Em seguida a mesma DAG sobe os CSVs (param `drive_schemas`, padrão: os 5 schemas) para a pasta do Drive `GOOGLE_DRIVE_FOLDER_ID` (`tableau-dados`, dona `lucas.prado.per@gmail.com`), numa subpasta por schema. Cada arquivo é sobrescrito no lugar, então o ID não muda; o reenvio só acontece quando o md5 muda, e as revisões antigas são apagadas para não acumular na cota. A service account `finances-py` **não serve** para isso: a cota dela no Drive é zero e ela não pode ser dona de arquivo num Gmail pessoal. O envio usa então um refresh token OAuth do dono da pasta, em `~/.secrets/drive-token.json` (`GOOGLE_DRIVE_TOKEN_FILE`). O token é gerado uma vez no host a partir do cliente OAuth "app para computador" do projeto GCP `finances-py`, em `~/.secrets/drive-oauth-client.json`, com o app de consentimento em produção; em teste, o token expiraria em 7 dias.
 
+Outra DAG só de dev e no `.gitignore`: `dags/dag_investments_files.py` (`investments__portfolio__ingestion`, b3 + avenue). Os Excel e PDFs só existem no lake local, e o YAML do investimentos tem `db_target: models`, então a carga vai direto para o `analytics_dev`. Por isso `raw_b3` e `raw_avenue` ficam fora da lista da `raw_pull_prod`. Em `analytics_prod` essas tabelas não são mais atualizadas. `investments__googlesheets__ingestion` continua em prod.
+
 ### Runtime requirements
 
 - `packages.txt`: `poppler-utils` (Avenue PDFs via `pdftotext`).
